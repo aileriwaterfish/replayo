@@ -39,6 +39,25 @@ public class ConfigStoreTests
         Assert.Equal(1200, new ConfigStore(dir).Charger().DureeBufferSecondes);
     }
 
+    [Fact]
+    public void Charger_RaccourciParDefaut_AltF10()
+    {
+        var store = new ConfigStore(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()));
+        var cfg = store.Charger();
+        Assert.Equal(0x1u, cfg.RaccourciModificateurs);
+        Assert.Equal(0x79u, cfg.RaccourciTouche);
+    }
+
+    [Fact]
+    public void Existe_VraiSeulementApresEnregistrement()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        var store = new ConfigStore(dir);
+        Assert.False(store.Existe);
+        store.Enregistrer(store.Charger());
+        Assert.True(store.Existe);
+    }
+
     [Theory]
     [InlineData("eco", 1920, 1080, 30, 8_000_000u)]
     [InlineData("qualite", null, null, 60, 40_000_000u)]

@@ -11,4 +11,6 @@ public sealed class ReplayoConfig
     public bool AudioMicro { get; set; } = false;
     public bool NommageManuel { get; set; } = false;
     public string DossierSortie { get; set; } = ""; // vide = Vidéos\Replayo
+    public uint RaccourciModificateurs { get; set; } = 0x0001; // MOD_ALT
+    public uint RaccourciTouche { get; set; } = 0x79;          // VK_F10
 }

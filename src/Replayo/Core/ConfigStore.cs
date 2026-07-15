@@ -8,6 +8,9 @@ public sealed class ConfigStore(string? dossier = null)
     private readonly string _chemin = Path.Combine(dossier ?? AppPaths.DossierConfig, "config.json");
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 
+    /// Vrai si une config a déjà été enregistrée (sinon : premier lancement → onboarding).
+    public bool Existe => File.Exists(_chemin);
+
     public ReplayoConfig Charger()
     {
         ReplayoConfig cfg = new();
@@ -18,6 +21,7 @@ public sealed class ConfigStore(string? dossier = null)
         }
         cfg.DureeBufferSecondes = Math.Clamp(cfg.DureeBufferSecondes, 15, 1200);
         if (cfg.FormatSortie is not ("mp4" or "mkv")) cfg.FormatSortie = "mp4";
+        if (cfg.RaccourciTouche == 0) { cfg.RaccourciModificateurs = 0x0001; cfg.RaccourciTouche = 0x79; }
         return cfg;
     }
 
