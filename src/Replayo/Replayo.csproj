@@ -13,6 +13,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Le SDK WPF retire System.IO des usings implicites (conflit Shapes.Path) : on le rétablit. -->
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="NAudio" Version="2.3.0" />
   </ItemGroup>
 
