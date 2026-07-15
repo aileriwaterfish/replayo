@@ -34,6 +34,14 @@ N+10 s.
 
 ## Performance mesurée
 
-À compléter en Tâche 11 (script `scripts/mesure-perf.ps1`) : CPU moyen et RAM max
-sur 60 s de capture, machine et préréglage documentés.
-Objectifs : CPU < 5 % (encodeur matériel), RAM < 200 Mo hors segment courant.
+Mesure du 15/07/2026 (script `scripts/mesure-perf.ps1`, 60 s de capture active,
+préréglage Équilibré 1080p 60 fps, encodeur matériel actif, 1 écran) :
+
+| Métrique | Mesuré | Objectif |
+|---|---|---|
+| CPU moyen | **0,93 %** | < 5 % |
+| RAM max | **194 Mo** | < 200 Mo |
+
+Clip de contrôle : H.264 Main 1920×1080 + AAC 48 kHz stéréo, assemblage sans
+ré-encodage (< 1 s). Reproduire : lancer l'app, puis
+`powershell -ExecutionPolicy Bypass -File scripts/mesure-perf.ps1`.
