@@ -14,12 +14,22 @@ encodage matériel).
 - SDK .NET 8
 - ffmpeg local : `powershell -ExecutionPolicy Bypass -File scripts/installer-ffmpeg.ps1` (une fois)
 
-## Lancer (milestone A — runner console)
+## Lancer
 
 ```powershell
 dotnet run --project src/Replayo -c Release
-# Alt+F10 → clip des N dernières secondes ; Ctrl+C → quitter
 ```
+
+Replayo est une **application de fond** : au premier lancement, un assistant demande
+format, qualité, écran(s) et durée du replay, puis la capture démarre et l'app se loge
+dans la **zone de notification** (system tray).
+
+- **Alt+F10** (reconfigurable) → clip des N dernières secondes, rangé + son de confirmation
+- **Icône tray** → démarrer/arrêter la capture, ouvrir le dossier des clips, Réglages, Quitter
+- **Fermer une fenêtre** = retour au tray (la capture continue) ; **Quitter** = uniquement via le tray
+- **Réglages** : durée, qualité, format, écran(s), audio (système/micro), raccourci,
+  nom auto ou manuel, dossier de sortie, démarrage avec Windows
+- **Démarrage avec Windows** : case dans les Réglages (clé `HKCU\...\Run`)
 
 ## Architecture (résumé)
 

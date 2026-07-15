@@ -1,8 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <ApplicationIcon>..\..\assets\replayo.ico</ApplicationIcon>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
@@ -15,6 +16,10 @@
   <ItemGroup>
     <!-- Le SDK WPF retire System.IO des usings implicites (conflit Shapes.Path) : on le rétablit. -->
     <Using Include="System.IO" />
+    <!-- WPF + WinForms exposent les mêmes noms (Label, ComboBox…). On retire WinForms
+         des usings implicites : le peu de code WinForms (tray, dialogue dossier) est en
+         alias WF. ou pleinement qualifié. -->
+    <Using Remove="System.Windows.Forms" />
   </ItemGroup>
 
   <ItemGroup>
@@ -24,6 +29,7 @@
   <ItemGroup>
     <None Include="..\..\tools\ffmpeg\ffmpeg.exe" CopyToOutputDirectory="PreserveNewest" Link="ffmpeg.exe" Condition="Exists('..\..\tools\ffmpeg\ffmpeg.exe')" />
     <None Include="..\..\assets\clip.wav" CopyToOutputDirectory="PreserveNewest" Link="assets\clip.wav" Condition="Exists('..\..\assets\clip.wav')" />
+    <None Include="..\..\assets\replayo.ico" CopyToOutputDirectory="PreserveNewest" Link="assets\replayo.ico" Condition="Exists('..\..\assets\replayo.ico')" />
   </ItemGroup>
 
 </Project>
