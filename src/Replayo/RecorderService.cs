@@ -17,7 +17,7 @@ public sealed class RecorderService : IDisposable
     private readonly List<Pipeline> _pipelines = new();
     private AudioEngine? _audio;
     private CancellationTokenSource? _cts;
-    private Timer? _surveillanceDisque;
+    private System.Threading.Timer? _surveillanceDisque;
     private ReplayoConfig _cfg = new();
 
     public bool EnCapture { get; private set; }
@@ -52,7 +52,7 @@ public sealed class RecorderService : IDisposable
         }
 
         // Surveillance disque : < 2 Go libres sur le volume du buffer → pause.
-        _surveillanceDisque = new Timer(_ =>
+        _surveillanceDisque = new System.Threading.Timer(_ =>
         {
             try
             {
