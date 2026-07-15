@@ -4,3 +4,4 @@ obj/
 *.user
 buffer/
 config.json
+tools/ffmpeg/
