@@ -19,7 +19,7 @@ Produit payant : abonnement 2,99 €/mois ou licence à vie 11,99 €.
 | Audio | Son système (WASAPI loopback) **et** micro, deux réglages indépendants on/off |
 | Raccourci | **Alt+F10** par défaut, reconfigurable |
 | Qualité | 3 préréglages : Éco (1080p 30 fps ~8 Mb/s) · Équilibré (natif 60 fps ~20 Mb/s) · Qualité (natif 60 fps ~40 Mb/s) |
-| Multi-écrans | Source au choix : écran 1 / écran 2 / tous — en mode « tous » : **un fichier par écran** |
+| Multi-écrans | Source au choix : n'importe quel écran détecté individuellement, ou tous — en mode « tous » : **un fichier par écran** (généralise le « écran 1 / écran 2 / tous » demandé aux configurations 3 écrans et plus) |
 | Format sortie | MP4 ou MKV, choisi à l'onboarding, modifiable dans les réglages |
 | Rangement | `Vidéos\Replayo\<Application au premier plan>\<AAAA-MM>\` ; appli indétectable → `Bureau` |
 | Nommage | Réglage : nom auto horodaté **ou** boîte de renommage immédiate |
@@ -67,7 +67,7 @@ compressés — coût quasi nul, résultat instantané.
 ## 3. Flux principaux
 
 **Premier lancement (onboarding)** : clé de licence (activation en ligne obligatoire)
-→ format MP4/MKV → préréglage qualité → source d'écran(s) → durée du replay →
+→ format MP4/MKV → préréglage qualité → source (liste des écrans détectés, ou tous) → durée du replay →
 capture démarrée. Sans licence valide, l'application est inutilisable (seul l'écran
 d'activation est accessible).
 
