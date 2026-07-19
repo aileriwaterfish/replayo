@@ -7,6 +7,9 @@ namespace Replayo.UI;
 /// Annuler garde le nom automatique ; OK renomme dans le même dossier.
 public sealed class RenameDialog : Window
 {
+    /// Chemin du clip après le dialogue (renommé ou non).
+    public string CheminFinal { get; private set; }
+
     /// Renomme le clip dans son dossier (caractères interdits filtrés). Renvoie le
     /// nouveau chemin, ou l'ancien si le nom est vide/inchangé/déjà pris. Logique
     /// pure et testable, séparée de l'UI.
@@ -24,6 +27,7 @@ public sealed class RenameDialog : Window
 
     public RenameDialog(string cheminClip)
     {
+        CheminFinal = cheminClip;
         var nomActuel = Path.GetFileNameWithoutExtension(cheminClip);
 
         Title = "Nommer le clip";
@@ -43,7 +47,7 @@ public sealed class RenameDialog : Window
         var annuler = new Button { Content = "Garder le nom auto", Padding = new Thickness(12, 4, 12, 4), Margin = new Thickness(0, 0, 8, 0) };
         var ok = new Button { Content = "Renommer", Padding = new Thickness(12, 4, 12, 4), IsDefault = true };
         annuler.Click += (_, _) => Close();
-        ok.Click += (_, _) => { RenommerFichier(cheminClip, boite.Text); Close(); };
+        ok.Click += (_, _) => { CheminFinal = RenommerFichier(cheminClip, boite.Text); Close(); };
         barre.Children.Add(annuler);
         barre.Children.Add(ok);
         pile.Children.Add(barre);
