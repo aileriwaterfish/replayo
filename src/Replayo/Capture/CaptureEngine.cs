@@ -29,7 +29,21 @@ public sealed class CaptureEngine(MonitorInfo ecran) : IDisposable
         item.Closed += (_, _) => CaptureInterrompue?.Invoke(); // écran débranché
         _session = _pool.CreateCaptureSession(item);
         _session.IsCursorCaptureEnabled = true;
+        DesactiverBordure(_session);
         _session.StartCapture();
+    }
+
+    /// Retire le contour coloré que Windows dessine autour de l'écran capturé.
+    /// API absente avant le build 20348 (Windows 10) → garde à l'exécution.
+    private static void DesactiverBordure(GraphicsCaptureSession session)
+    {
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 20348)) return;
+        try
+        {
+            GraphicsCaptureAccess.RequestAccessAsync(GraphicsCaptureAccessKind.Borderless).AsTask().Wait(2000);
+            session.IsBorderRequired = false;
+        }
+        catch { } // au pire, le contour reste
     }
 
     private void SurFrame(Direct3D11CaptureFramePool pool, object? _)
