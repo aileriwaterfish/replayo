@@ -18,7 +18,7 @@ namespace Replayo.UI;
 /// pour ne pas voler le focus au jeu, WS_EX_TOOLWINDOW pour rester hors Alt+Tab.
 public sealed class ToastWindow : Window
 {
-    private const int DureeAffichageMs = 3000;
+    private const int DureeAffichageMs = 2000;
 
     [DllImport("user32.dll")] private static extern int GetWindowLongW(IntPtr hwnd, int index);
     [DllImport("user32.dll")] private static extern int SetWindowLongW(IntPtr hwnd, int index, int valeur);
