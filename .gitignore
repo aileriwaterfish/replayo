@@ -5,3 +5,5 @@ obj/
 buffer/
 config.json
 tools/ffmpeg/
+
+dist/
