@@ -19,6 +19,7 @@ public static class Program
         var store = new ConfigStore();
         using var recorder = new RecorderService();
         SettingsWindow? reglages = null;
+        var cfgCourante = store.Charger();
 
         void OuvrirReglages()
         {
@@ -27,39 +28,46 @@ public static class Program
             reglages.Show();
         }
 
-        using var tray = new TrayIcon(recorder, OuvrirReglages, () => app.Shutdown());
+        Action sauvegarderClip = () => { }; // assignée juste après (dépendance croisée avec le tray)
+        using var tray = new TrayIcon(recorder, () => sauvegarderClip(), OuvrirReglages, () => app.Shutdown());
         using var hotkey = new HotkeyManager();
+
+        sauvegarderClip = () => _ = Task.Run(async () =>
+        {
+            var chemins = await recorder.ClipperAsync();
+            foreach (var chemin in chemins)
+                app.Dispatcher.Invoke(() =>
+                {
+                    var final = chemin;
+                    if (cfgCourante.NommageManuel)
+                    {
+                        var dlg = new RenameDialog(chemin);
+                        dlg.ShowDialog();
+                        final = dlg.CheminFinal;
+                    }
+                    ToastWindow.Afficher(Path.GetFileName(final), cfgCourante.DureeBufferSecondes);
+                });
+            if (chemins.Count == 0) tray.Notifier("Aucun clip : la capture n'est pas active.");
+        });
 
         void BrancherRaccourci(ReplayoConfig cfg)
         {
             hotkey.Desenregistrer();
-            var ok = hotkey.Enregistrer(cfg.RaccourciModificateurs, cfg.RaccourciTouche, () =>
-                _ = Task.Run(async () =>
-                {
-                    var chemins = await recorder.ClipperAsync();
-                    foreach (var chemin in chemins)
-                        app.Dispatcher.Invoke(() =>
-                        {
-                            if (cfg.NommageManuel) new RenameDialog(chemin).ShowDialog();
-                        });
-                    if (chemins.Count == 0) tray.Notifier("Aucun clip : la capture n'est pas active.");
-                }));
+            var ok = hotkey.Enregistrer(cfg.RaccourciModificateurs, cfg.RaccourciTouche, () => sauvegarderClip());
             if (!ok) tray.Notifier("Le raccourci est déjà utilisé par une autre application — changez-le dans les réglages.");
         }
 
-        var cfg = store.Charger();
         if (!store.Existe)
         {
             var onboarding = new OnboardingWindow(store);
             if (onboarding.ShowDialog() != true) { app.Shutdown(); return; } // onboarding refusé → quitter
-            cfg = store.Charger();
+            cfgCourante = store.Charger();
         }
-        recorder.Demarrer(cfg);
-        tray.RafraichirEtat();
-        BrancherRaccourci(cfg);
+        recorder.Demarrer(cfgCourante);
+        BrancherRaccourci(cfgCourante);
 
-        // Réglages enregistrés → re-brancher le raccourci (il a pu changer) + rafraîchir le tray.
-        SettingsWindow.ConfigChangee += nouvelle => { BrancherRaccourci(nouvelle); tray.RafraichirEtat(); };
+        // Réglages enregistrés → re-brancher le raccourci (il a pu changer).
+        SettingsWindow.ConfigChangee += nouvelle => { cfgCourante = nouvelle; BrancherRaccourci(nouvelle); };
 
         app.Run();
         recorder.Arreter();
