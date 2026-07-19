@@ -36,6 +36,10 @@ internal static class Theme
     public static void Sombre(Window fenetre)
     {
         fenetre.Background = FondFenetre;
+        // Icône posée explicitement : le cache d'icônes du shell peut servir une
+        // vieille version de celle embarquée dans l'exe.
+        var ico = Path.Combine(AppContext.BaseDirectory, "assets", "replayo.ico");
+        if (File.Exists(ico)) fenetre.Icon = System.Windows.Media.Imaging.BitmapFrame.Create(new Uri(ico));
         fenetre.SourceInitialized += (_, _) =>
         {
             int actif = 1;
