@@ -1,12 +1,14 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using Replayo.Core;
 
 namespace Replayo.UI;
 
 /// Fenêtre de réglages : tous les paramètres, appliqués à chaud à l'enregistrement.
 /// Contrôles construits en code (pas de XAML) pour rester en un seul fichier.
+/// Mise en page « cartes » (maquette Claude Design « Replayo UI », écran 1a).
 public sealed class SettingsWindow : Window
 {
     public static event Action<ReplayoConfig>? ConfigChangee;
@@ -35,69 +37,107 @@ public sealed class SettingsWindow : Window
         _mods = cfg.RaccourciModificateurs;
         _vk = cfg.RaccourciTouche;
 
-        Title = "Réglages Replayo";
-        Width = 520; Height = 700;
+        Title = "Réglages — Replayo";
+        Width = 640; Height = 760;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         ResizeMode = ResizeMode.CanMinimize;
         Theme.Sombre(this);
 
-        var pile = new StackPanel { Margin = new Thickness(20) };
+        var pile = new StackPanel { Margin = new Thickness(24, 8, 24, 28) };
 
-        pile.Children.Add(Controls.Titre("Durée du replay"));
+        pile.Children.Add(Controls.Titre("Capture"));
+
         var (panneauDuree, lireDuree) = Controls.PanneauDuree(cfg.DureeBufferSecondes);
         _lireDuree = lireDuree;
-        pile.Children.Add(panneauDuree);
+        pile.Children.Add(Controls.Carte("Durée du replay", "Les dernières secondes gardées en mémoire", panneauDuree));
 
-        pile.Children.Add(Controls.Titre("Qualité"));
         _preset = Controls.ComboPreset(cfg.Preset);
-        pile.Children.Add(_preset);
+        _preset.MinWidth = 280;
+        pile.Children.Add(Controls.Carte("Qualité", "Résolution et fluidité de l'enregistrement", _preset));
 
-        pile.Children.Add(Controls.Titre("Format de sortie"));
         _format = Controls.ComboFormat(cfg.FormatSortie);
-        pile.Children.Add(_format);
+        _format.MinWidth = 280;
+        pile.Children.Add(Controls.Carte("Format de sortie", "MP4 recommandé pour le partage", _format));
 
-        pile.Children.Add(Controls.Titre("Écran(s) à capturer"));
-        var (panneauEcrans, lire) = Controls.PanneauEcrans(cfg.SourcesEcrans);
-        _lireEcrans = lire;
-        pile.Children.Add(panneauEcrans);
+        var (tousEcrans, listeEcrans, lireEcrans) = Controls.EcransAvecInterrupteur(cfg.SourcesEcrans);
+        _lireEcrans = lireEcrans;
+        pile.Children.Add(Controls.CarteVerticale("Tous les écrans", "Capturer chaque moniteur connecté", listeEcrans, tousEcrans));
 
         pile.Children.Add(Controls.Titre("Audio"));
-        _audioSys = new CheckBox { Content = "Son du système", IsChecked = cfg.AudioSysteme, Margin = new Thickness(0, 2, 0, 2) };
-        _audioMic = new CheckBox { Content = "Micro", IsChecked = cfg.AudioMicro, Margin = new Thickness(0, 2, 0, 2) };
-        pile.Children.Add(_audioSys);
-        pile.Children.Add(_audioMic);
+        (_audioSys, var carteSys) = CarteInterrupteur("Son du système", null, cfg.AudioSysteme);
+        pile.Children.Add(carteSys);
+        (_audioMic, var carteMic) = CarteInterrupteur("Micro", null, cfg.AudioMicro);
+        pile.Children.Add(carteMic);
 
-        pile.Children.Add(Controls.Titre("Raccourci du clip (cliquez puis tapez la combinaison)"));
-        _raccourci = new TextBox { Text = Controls.TexteRaccourci(_mods, _vk), IsReadOnly = true };
+        pile.Children.Add(Controls.Titre("Clips"));
+
+        _raccourci = new TextBox
+        {
+            Text = Controls.TexteRaccourci(_mods, _vk), IsReadOnly = true,
+            FontFamily = new System.Windows.Media.FontFamily("Consolas"), FontWeight = FontWeights.SemiBold,
+            TextAlignment = TextAlignment.Center, MinWidth = 96,
+            Padding = new Thickness(12, 5, 12, 5), Cursor = Cursors.Hand,
+        };
         _raccourci.PreviewKeyDown += CapturerRaccourci;
-        pile.Children.Add(_raccourci);
+        pile.Children.Add(Controls.Carte("Raccourci du clip", "Cliquer puis taper la combinaison", _raccourci));
 
-        pile.Children.Add(Controls.Titre("Nom des clips"));
-        _nomAuto = new RadioButton { Content = "Automatique (horodaté)", IsChecked = !cfg.NommageManuel, Margin = new Thickness(0, 2, 0, 2) };
+        var exempleAuto = new StackPanel { Orientation = Orientation.Horizontal };
+        exempleAuto.Children.Add(new TextBlock { Text = "Automatique (horodaté)", Foreground = Theme.Texte, FontSize = 13 });
+        exempleAuto.Children.Add(new TextBlock
+        {
+            Text = "Replay_2026-07-19_21-04.mp4", Foreground = Theme.TexteSecondaire,
+            FontSize = 12, Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
+        });
+        _nomAuto = new RadioButton { Content = exempleAuto, IsChecked = !cfg.NommageManuel, Margin = new Thickness(0, 2, 0, 2) };
         var nomManuel = new RadioButton { Content = "Me demander à chaque clip", IsChecked = cfg.NommageManuel, Margin = new Thickness(0, 2, 0, 2) };
-        pile.Children.Add(_nomAuto);
-        pile.Children.Add(nomManuel);
+        var pileNoms = new StackPanel();
+        pileNoms.Children.Add(_nomAuto);
+        pileNoms.Children.Add(nomManuel);
+        pile.Children.Add(Controls.CarteVerticale("Nom des clips", null, pileNoms));
 
-        pile.Children.Add(Controls.Titre("Dossier des clips (vide = Vidéos\\Replayo)"));
-        _dossier = new TextBox { Text = cfg.DossierSortie };
-        var parcourir = new Button { Content = "Parcourir…", Margin = new Thickness(0, 4, 0, 0), HorizontalAlignment = HorizontalAlignment.Left, Padding = new Thickness(10, 2, 10, 2) };
+        _dossier = new TextBox { Text = cfg.DossierSortie, MinWidth = 220, VerticalContentAlignment = VerticalAlignment.Center };
+        var parcourir = new Button { Content = "Parcourir…", Margin = new Thickness(8, 0, 0, 0), Padding = new Thickness(12, 5, 12, 5) };
         parcourir.Click += (_, _) =>
         {
             var dlg = new System.Windows.Forms.FolderBrowserDialog();
             if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK) _dossier.Text = dlg.SelectedPath;
         };
-        pile.Children.Add(_dossier);
-        pile.Children.Add(parcourir);
+        var droiteDossier = new StackPanel { Orientation = Orientation.Horizontal };
+        droiteDossier.Children.Add(_dossier);
+        droiteDossier.Children.Add(parcourir);
+        pile.Children.Add(Controls.Carte("Dossier des clips", "Vide = Vidéos\\Replayo", droiteDossier));
 
-        _autostart = new CheckBox { Content = "Démarrer Replayo avec Windows", IsChecked = AutostartManager.EstActive(), Margin = new Thickness(0, 16, 0, 2) };
-        pile.Children.Add(_autostart);
+        (_autostart, var carteAuto) = CarteInterrupteur("Démarrer avec Windows", "Lance Replayo à l'ouverture de session", AutostartManager.EstActive());
+        pile.Children.Add(carteAuto);
 
-        var enregistrer = new Button { Content = "Enregistrer", Margin = new Thickness(0, 20, 0, 0), Padding = new Thickness(16, 6, 16, 6), HorizontalAlignment = HorizontalAlignment.Right };
+        var enregistrer = new Button
+        {
+            Content = "Enregistrer", Margin = new Thickness(0, 12, 0, 0),
+            Padding = new Thickness(18, 7, 18, 7), HorizontalAlignment = HorizontalAlignment.Right,
+        };
         enregistrer.Click += (_, _) => Enregistrer();
         pile.Children.Add(enregistrer);
 
         Content = new ScrollViewer { Content = pile, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         Closing += (_, e) => { e.Cancel = true; Hide(); }; // fermer = masquer, la capture continue
+    }
+
+    /// Carte à interrupteur, avec libellé d'état « Activé / Désactivé » qui suit le toggle.
+    private static (CheckBox Toggle, Border Carte) CarteInterrupteur(string titre, string? sousTitre, bool coche)
+    {
+        var toggle = Controls.Interrupteur(coche);
+        var etat = new TextBlock
+        {
+            Text = coche ? "Activé" : "Désactivé", FontSize = 12,
+            Foreground = Theme.TexteSecondaire, VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 12, 0),
+        };
+        toggle.Checked += (_, _) => etat.Text = "Activé";
+        toggle.Unchecked += (_, _) => etat.Text = "Désactivé";
+        var droite = new StackPanel { Orientation = Orientation.Horizontal };
+        droite.Children.Add(etat);
+        droite.Children.Add(toggle);
+        return (toggle, Controls.Carte(titre, sousTitre, droite));
     }
 
     private void CapturerRaccourci(object sender, KeyEventArgs e)
