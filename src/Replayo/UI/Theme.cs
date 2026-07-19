@@ -12,14 +12,15 @@ namespace Replayo.UI;
 /// + barre de titre sombre par fenêtre (DWM). Aucun suivi du thème Windows.
 internal static class Theme
 {
-    public static readonly SolidColorBrush FondFenetre = Fige("#1E1E1E");
-    public static readonly SolidColorBrush Surface = Fige("#2D2D2D");
-    public static readonly SolidColorBrush Bordure = Fige("#3F3F3F");
+    public static readonly SolidColorBrush FondFenetre = Fige("#202020");
+    public static readonly SolidColorBrush Surface = Fige("#2B2B2B");
+    public static readonly SolidColorBrush Bordure = Fige("#3A3A3A");
     public static readonly SolidColorBrush Survol = Fige("#3A3A3A");
     public static readonly SolidColorBrush Presse = Fige("#454545");
     public static readonly SolidColorBrush Texte = Fige("#F0F0F0");
     public static readonly SolidColorBrush TexteSecondaire = Fige("#A0A0A0");
-    public static readonly SolidColorBrush Accent = Fige("#F97316");
+    public static readonly SolidColorBrush Accent = Fige("#6E6CF3");        // violet maquette (oklch 0.62 0.19 278)
+    public static readonly SolidColorBrush AccentSurvol = Fige("#918FF6");
 
     private static SolidColorBrush Fige(string hex)
     {
@@ -97,6 +98,11 @@ internal static class Theme
         barre.Setters.Add(new Setter(Control.TemplateProperty, ParseTemplate(GabaritScrollBar)));
         dico.Add(typeof(ScrollBar), barre);
 
+        // Style nommé (pas implicite) : CheckBox rendue en interrupteur 40×20.
+        var interrupteur = new Style(typeof(CheckBox));
+        interrupteur.Setters.Add(new Setter(Control.TemplateProperty, ParseTemplate(GabaritInterrupteur)));
+        dico.Add("Interrupteur", interrupteur);
+
         return dico;
     }
 
@@ -154,6 +160,23 @@ internal static class Theme
   <ControlTemplate.Triggers>
     <Trigger Property='IsHighlighted' Value='True'><Setter TargetName='fond' Property='Background' Value='#3A3A3A'/></Trigger>
     <Trigger Property='IsSelected' Value='True'><Setter TargetName='fond' Property='Background' Value='#454545'/></Trigger>
+  </ControlTemplate.Triggers>
+</ControlTemplate>";
+
+    private const string GabaritInterrupteur = $@"
+<ControlTemplate {Ns} TargetType='CheckBox'>
+  <Border x:Name='piste' Width='40' Height='20' CornerRadius='10' Background='#3F3F3F'>
+    <Border x:Name='pouce' Width='14' Height='14' CornerRadius='7' Background='#F0F0F0'
+            HorizontalAlignment='Left' Margin='3,0,0,0'/>
+  </Border>
+  <ControlTemplate.Triggers>
+    <Trigger Property='IsChecked' Value='True'>
+      <Setter TargetName='piste' Property='Background' Value='#6E6CF3'/>
+      <Setter TargetName='pouce' Property='HorizontalAlignment' Value='Right'/>
+      <Setter TargetName='pouce' Property='Margin' Value='0,0,3,0'/>
+    </Trigger>
+    <Trigger Property='IsMouseOver' Value='True'><Setter TargetName='pouce' Property='Background' Value='#FFFFFF'/></Trigger>
+    <Trigger Property='IsEnabled' Value='False'><Setter Property='Opacity' Value='0.45'/></Trigger>
   </ControlTemplate.Triggers>
 </ControlTemplate>";
 

@@ -17,4 +17,12 @@ public class ThemeTests
         })
             Assert.True(dico.Contains(type), $"Style implicite manquant pour {type.Name}");
     }
+
+    [Fact]
+    public void CreerRessources_ContientLeStyleInterrupteur()
+        => Assert.True(Theme.CreerRessources().Contains("Interrupteur"));
+
+    [Fact]
+    public void Accent_EstLeVioletDeLaMaquette()
+        => Assert.Equal("#FF6E6CF3", Theme.Accent.Color.ToString());
 }
