@@ -1,12 +1,11 @@
 using System.Diagnostics;
-using System.Media;
 using Replayo.Buffer;
 using Replayo.Core;
 
 namespace Replayo.Clip;
 
-/// Assemble les N dernières secondes en un fichier final SANS ré-encodage (ffmpeg -c copy),
-/// range le fichier (Appli/AAAA-MM) et joue le son de confirmation.
+/// Assemble les N dernières secondes en un fichier final SANS ré-encodage (ffmpeg -c copy)
+/// et range le fichier (Appli/AAAA-MM). Pas de son : le toast sert de confirmation.
 public sealed class ClipService(ReplayoConfig cfg)
 {
     public static string ConstruireCheminSortie(string racine, string app, DateTime quand, string format, string? suffixe)
@@ -41,13 +40,6 @@ public sealed class ClipService(ReplayoConfig cfg)
 
         if (proc.ExitCode != 0) { Console.Error.WriteLine($"[clip] ffmpeg : {erreurs}"); return null; }
 
-        JouerSon();
-        return sortie;
-    }
-
-    private static void JouerSon()
-    {
-        var wav = Path.Combine(AppContext.BaseDirectory, "assets", "clip.wav");
-        if (File.Exists(wav)) { try { new SoundPlayer(wav).Play(); } catch { /* jamais bloquant */ } }
+        return sortie; // pas de son : le toast suffit comme confirmation
     }
 }
