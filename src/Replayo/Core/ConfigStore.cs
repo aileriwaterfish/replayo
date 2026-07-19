@@ -19,7 +19,7 @@ public sealed class ConfigStore(string? dossier = null)
             try { cfg = JsonSerializer.Deserialize<ReplayoConfig>(File.ReadAllText(_chemin)) ?? new(); }
             catch { cfg = new(); } // fichier corrompu → défauts, jamais de crash
         }
-        cfg.DureeBufferSecondes = Math.Clamp(cfg.DureeBufferSecondes, 15, 1200);
+        cfg.DureeBufferSecondes = Math.Clamp(cfg.DureeBufferSecondes, 5, 1200);
         if (cfg.FormatSortie is not ("mp4" or "mkv")) cfg.FormatSortie = "mp4";
         if (cfg.RaccourciTouche == 0) { cfg.RaccourciModificateurs = 0x0001; cfg.RaccourciTouche = 0x79; }
         return cfg;
