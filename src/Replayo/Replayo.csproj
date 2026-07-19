@@ -35,6 +35,7 @@
     <None Include="..\..\tools\ffmpeg\ffmpeg.exe" CopyToOutputDirectory="PreserveNewest" Link="ffmpeg.exe" Condition="Exists('..\..\tools\ffmpeg\ffmpeg.exe')" />
     <None Include="..\..\assets\clip.wav" CopyToOutputDirectory="PreserveNewest" Link="assets\clip.wav" Condition="Exists('..\..\assets\clip.wav')" />
     <None Include="..\..\assets\replayo.ico" CopyToOutputDirectory="PreserveNewest" Link="assets\replayo.ico" Condition="Exists('..\..\assets\replayo.ico')" />
+    <None Include="..\..\assets\tray.ico" CopyToOutputDirectory="PreserveNewest" Link="assets\tray.ico" Condition="Exists('..\..\assets\tray.ico')" />
   </ItemGroup>
 
 </Project>

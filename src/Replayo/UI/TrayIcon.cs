@@ -25,13 +25,20 @@ public sealed class TrayIcon : IDisposable
 
         _icone = new WF.NotifyIcon
         {
-            Icon = new System.Drawing.Icon(Path.Combine(AppContext.BaseDirectory, "assets", "replayo.ico")),
+            // Mono blanc dédié au tray (lisible sur la barre des tâches) ; repli sur l'icône d'app.
+            Icon = new System.Drawing.Icon(ChoisirIconeTray()),
             Text = "Replayo",
             Visible = true,
             ContextMenuStrip = menu,
         };
         _icone.DoubleClick += (_, _) => ouvrirReglages();
         recorder.Notification += Notifier;
+    }
+
+    private static string ChoisirIconeTray()
+    {
+        var tray = Path.Combine(AppContext.BaseDirectory, "assets", "tray.ico");
+        return File.Exists(tray) ? tray : Path.Combine(AppContext.BaseDirectory, "assets", "replayo.ico");
     }
 
     private void Basculer()

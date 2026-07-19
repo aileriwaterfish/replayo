@@ -1,0 +1,95 @@
+// Générateur d'icônes Replayo depuis la maquette « 3a — La boucle, version raffinée ».
+// Paths SVG (viewBox 48) repris tels quels de la maquette ; trois graisses selon la taille.
+using System.IO;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+
+// (ring, arrow, play, strokeWidth) par graisse
+var L = (Ring: "M 24 9 A 15 15 0 1 1 9 24", Arrow: "M 18.5 9 L 26 4.5 L 26 13.5 Z", Play: "M 20.8 17.8 L 31.5 24 L 20.8 30.2 Z", W: 5.0);
+var M = (Ring: "M 24 9 A 15 15 0 1 1 9 24", Arrow: "M 17.5 9 L 26 4 L 26 14 Z", Play: "M 19.8 17.2 L 32 24 L 19.8 30.8 Z", W: 6.0);
+var S = (Ring: "M 24 9 A 15 15 0 1 1 9 24", Arrow: "M 16.5 9 L 26.5 3.5 L 26.5 14.5 Z", Play: "M 18.8 16.2 L 33 24 L 18.8 31.8 Z", W: 7.0);
+
+var sortie = args.Length > 0 ? args[0] : ".";
+Directory.CreateDirectory(sortie);
+
+Brush Gradient() => new LinearGradientBrush(
+    (Color)ColorConverter.ConvertFromString("#7E8FFA"),
+    (Color)ColorConverter.ConvertFromString("#8A4FE6"),
+    new Point(0, 0), new Point(1, 1));
+
+void DessinerGlyphe(DrawingContext dc, (string Ring, string Arrow, string Play, double W) v, Brush pinceau, double taille, double decal)
+{
+    dc.PushTransform(new TranslateTransform(decal, decal));
+    dc.PushTransform(new ScaleTransform(taille / 48.0, taille / 48.0));
+    var stylo = new Pen(pinceau, v.W) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+    dc.DrawGeometry(null, stylo, Geometry.Parse(v.Ring));
+    var joint = new Pen(pinceau, 2) { LineJoin = PenLineJoin.Round };
+    dc.DrawGeometry(pinceau, joint, Geometry.Parse(v.Arrow));
+    var joint3 = new Pen(pinceau, 3) { LineJoin = PenLineJoin.Round };
+    dc.DrawGeometry(pinceau, joint3, Geometry.Parse(v.Play));
+    dc.Pop(); dc.Pop();
+}
+
+byte[] Png(int taille, bool tuile)
+{
+    var v = taille >= 60 ? L : taille >= 33 ? M : S;
+    var visuel = new DrawingVisual();
+    using (var dc = visuel.RenderOpen())
+    {
+        double glyphe;
+        if (tuile)
+        {
+            double rayon = taille * 28.0 / 120.0;
+            var fond = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#17171C"));
+            var bord = new SolidColorBrush(Color.FromArgb(23, 255, 255, 255)); // rgba(255,255,255,0.09)
+            double ep = Math.Max(1.0, taille / 120.0);
+            dc.DrawRoundedRectangle(fond, new Pen(bord, ep), new Rect(ep / 2, ep / 2, taille - ep, taille - ep), rayon, rayon);
+            glyphe = taille * 0.60;
+        }
+        else glyphe = taille; // tray : le glyphe occupe tout le canevas
+
+        var pinceau = tuile ? Gradient() : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E8E8EC"));
+        DessinerGlyphe(dc, v, pinceau, glyphe, (taille - glyphe) / 2);
+    }
+    var bmp = new RenderTargetBitmap(taille, taille, 96, 96, PixelFormats.Pbgra32);
+    bmp.Render(visuel);
+    var enc = new PngBitmapEncoder();
+    enc.Frames.Add(BitmapFrame.Create(bmp));
+    using var ms = new MemoryStream();
+    enc.Save(ms);
+    return ms.ToArray();
+}
+
+void Ico(string chemin, int[] tailles, bool tuile)
+{
+    var images = tailles.Select(t => (Taille: t, Donnees: Png(t, tuile))).ToList();
+    using var fs = new FileStream(chemin, FileMode.Create);
+    using var w = new BinaryWriter(fs);
+    w.Write((short)0); w.Write((short)1); w.Write((short)images.Count);
+    int offset = 6 + 16 * images.Count;
+    foreach (var (t, d) in images)
+    {
+        w.Write((byte)(t >= 256 ? 0 : t)); w.Write((byte)(t >= 256 ? 0 : t));
+        w.Write((byte)0); w.Write((byte)0); w.Write((short)1); w.Write((short)32);
+        w.Write(d.Length); w.Write(offset);
+        offset += d.Length;
+    }
+    foreach (var (_, d) in images) w.Write(d);
+    Console.WriteLine($"{chemin} : {images.Count} tailles ({string.Join(", ", tailles)})");
+}
+
+var thread = new Thread(() =>
+{
+    Ico(Path.Combine(sortie, "replayo.ico"), new[] { 256, 128, 64, 48, 32, 24, 20, 16 }, tuile: true);
+    Ico(Path.Combine(sortie, "tray.ico"), new[] { 32, 24, 20, 16 }, tuile: false);
+
+    // Aperçus PNG pour contrôle visuel
+    File.WriteAllBytes(Path.Combine(sortie, "apercu-256.png"), Png(256, true));
+    File.WriteAllBytes(Path.Combine(sortie, "apercu-32.png"), Png(32, true));
+    File.WriteAllBytes(Path.Combine(sortie, "apercu-tray-32.png"), Png(32, false));
+    Console.WriteLine("aperçus écrits");
+});
+thread.SetApartmentState(ApartmentState.STA);
+thread.Start();
+thread.Join();
