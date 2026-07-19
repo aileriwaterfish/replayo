@@ -65,6 +65,18 @@ internal static class Controls
 
     public static int DureeSelectionnee(Slider s) => Durees[(int)Math.Round(s.Value)];
 
+    // Saisie manuelle : parse + clamp 5–1200 ; invalide → on garde la valeur actuelle.
+    public static int NormaliserDuree(string? texte, int valeurActuelle)
+        => int.TryParse(texte?.Trim(), out int s) ? Math.Clamp(s, 5, 1200) : valeurActuelle;
+
+    public static int IndexPalierLePlusProche(int valeur)
+    {
+        int meilleur = 0;
+        for (int i = 1; i < Durees.Length; i++)
+            if (Math.Abs(Durees[i] - valeur) < Math.Abs(Durees[meilleur] - valeur)) meilleur = i;
+        return meilleur;
+    }
+
     /// Liste de cases à cocher : « Tous les écrans » + une par écran détecté.
     public static (StackPanel Panneau, Func<List<int>> Lire) PanneauEcrans(List<int> selection)
     {
