@@ -15,6 +15,7 @@ public static class Program
         if (!premiere) return; // déjà lancé : ne rien faire
 
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        Theme.Appliquer();
         var store = new ConfigStore();
         using var recorder = new RecorderService();
         SettingsWindow? reglages = null;

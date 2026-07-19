@@ -19,6 +19,7 @@ public sealed class OnboardingWindow : Window
         Width = 480; Height = 560;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         ResizeMode = ResizeMode.NoResize;
+        Theme.Sombre(this);
 
         var pile = new StackPanel { Margin = new Thickness(24) };
         pile.Children.Add(new TextBlock
@@ -29,7 +30,7 @@ public sealed class OnboardingWindow : Window
         pile.Children.Add(new TextBlock
         {
             Text = "Modifiable à tout moment depuis l'icône Replayo (zone de notification).",
-            Foreground = System.Windows.Media.Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8),
+            Foreground = Theme.TexteSecondaire, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8),
         });
 
         pile.Children.Add(Controls.Titre("Format de sortie"));

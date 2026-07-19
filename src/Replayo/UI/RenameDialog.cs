@@ -31,6 +31,7 @@ public sealed class RenameDialog : Window
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         ResizeMode = ResizeMode.NoResize;
         Topmost = true;
+        Theme.Sombre(this);
 
         var pile = new StackPanel { Margin = new Thickness(20) };
         pile.Children.Add(new TextBlock { Text = "Nom du fichier :", Margin = new Thickness(0, 0, 0, 6) });

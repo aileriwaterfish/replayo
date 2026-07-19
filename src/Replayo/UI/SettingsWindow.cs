@@ -40,6 +40,7 @@ public sealed class SettingsWindow : Window
         Width = 520; Height = 700;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         ResizeMode = ResizeMode.CanMinimize;
+        Theme.Sombre(this);
 
         var pile = new StackPanel { Margin = new Thickness(20) };
 
