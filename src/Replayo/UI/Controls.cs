@@ -51,19 +51,78 @@ internal static class Controls
 
     public static string FormatSelectionne(ComboBox c) => (string)((ComboBoxItem)c.SelectedItem).Tag;
 
-    public static Slider SliderDuree(int valeur)
+    public static Slider SliderDuree(int valeur) => new()
     {
-        int idx = Math.Max(0, Array.IndexOf(Durees, valeur));
-        if (idx < 0) idx = 5; // 300 s
-        return new Slider
-        {
-            Minimum = 0, Maximum = Durees.Length - 1, Value = idx,
-            IsSnapToTickEnabled = true, TickFrequency = 1,
-            Margin = new Thickness(0, 0, 0, 0),
-        };
-    }
+        Minimum = 0, Maximum = Durees.Length - 1,
+        Value = IndexPalierLePlusProche(valeur), // valeur libre (ex. 9 s) → palier le plus proche
+        IsSnapToTickEnabled = true, TickFrequency = 1,
+        Margin = new Thickness(0, 0, 0, 0),
+    };
 
     public static int DureeSelectionnee(Slider s) => Durees[(int)Math.Round(s.Value)];
+
+    // Saisie manuelle : parse + clamp 5–1200 ; invalide → on garde la valeur actuelle.
+    public static int NormaliserDuree(string? texte, int valeurActuelle)
+        => int.TryParse(texte?.Trim(), out int s) ? Math.Clamp(s, 5, 1200) : valeurActuelle;
+
+    public static int IndexPalierLePlusProche(int valeur)
+    {
+        int meilleur = 0;
+        for (int i = 1; i < Durees.Length; i++)
+            if (Math.Abs(Durees[i] - valeur) < Math.Abs(Durees[meilleur] - valeur)) meilleur = i;
+        return meilleur;
+    }
+
+    /// Slider + champ texte synchronisés : le slider donne les paliers rapides,
+    /// le champ accepte une valeur libre (5–1200 s) qui fait foi à l'enregistrement.
+    public static (StackPanel Panneau, Func<int> Lire) PanneauDuree(int valeur)
+    {
+        int courante = valeur;
+        bool majInterne = false; // vrai quand on déplace le slider par code (ne pas écraser la saisie)
+
+        var slider = SliderDuree(valeur);
+        var champ = new TextBox
+        {
+            Text = valeur.ToString(), Width = 56,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(8, 0, 4, 0),
+        };
+        var lbl = new Label { Content = TexteDuree(valeur) };
+
+        slider.ValueChanged += (_, _) =>
+        {
+            if (majInterne) return;
+            courante = DureeSelectionnee(slider);
+            champ.Text = courante.ToString();
+            lbl.Content = TexteDuree(courante);
+        };
+
+        void Valider()
+        {
+            courante = NormaliserDuree(champ.Text, courante);
+            champ.Text = courante.ToString();
+            lbl.Content = TexteDuree(courante);
+            majInterne = true;
+            slider.Value = IndexPalierLePlusProche(courante);
+            majInterne = false;
+        }
+        champ.LostFocus += (_, _) => Valider();
+        champ.KeyDown += (_, e) => { if (e.Key == Key.Enter) { Valider(); e.Handled = true; } };
+
+        var ligne = new DockPanel();
+        var unite = new Label { Content = "s", VerticalAlignment = VerticalAlignment.Center };
+        DockPanel.SetDock(unite, Dock.Right);
+        DockPanel.SetDock(champ, Dock.Right);
+        ligne.Children.Add(unite);
+        ligne.Children.Add(champ);
+        slider.VerticalAlignment = VerticalAlignment.Center;
+        ligne.Children.Add(slider); // remplit l'espace restant
+
+        var panneau = new StackPanel();
+        panneau.Children.Add(ligne);
+        panneau.Children.Add(lbl);
+        return (panneau, () => courante);
+    }
 
     /// Liste de cases à cocher : « Tous les écrans » + une par écran détecté.
     public static (StackPanel Panneau, Func<List<int>> Lire) PanneauEcrans(List<int> selection)

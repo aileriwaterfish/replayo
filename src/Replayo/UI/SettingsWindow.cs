@@ -14,8 +14,7 @@ public sealed class SettingsWindow : Window
     private readonly ConfigStore _store;
     private readonly RecorderService _recorder;
 
-    private readonly Slider _duree;
-    private readonly Label _dureeLbl;
+    private readonly Func<int> _lireDuree;
     private readonly ComboBox _preset;
     private readonly ComboBox _format;
     private readonly Func<List<int>> _lireEcrans;
@@ -45,11 +44,9 @@ public sealed class SettingsWindow : Window
         var pile = new StackPanel { Margin = new Thickness(20) };
 
         pile.Children.Add(Controls.Titre("Durée du replay"));
-        _dureeLbl = new Label { Content = Controls.TexteDuree(cfg.DureeBufferSecondes) };
-        _duree = Controls.SliderDuree(cfg.DureeBufferSecondes);
-        _duree.ValueChanged += (_, _) => _dureeLbl.Content = Controls.TexteDuree(Controls.DureeSelectionnee(_duree));
-        pile.Children.Add(_duree);
-        pile.Children.Add(_dureeLbl);
+        var (panneauDuree, lireDuree) = Controls.PanneauDuree(cfg.DureeBufferSecondes);
+        _lireDuree = lireDuree;
+        pile.Children.Add(panneauDuree);
 
         pile.Children.Add(Controls.Titre("Qualité"));
         _preset = Controls.ComboPreset(cfg.Preset);
@@ -120,7 +117,7 @@ public sealed class SettingsWindow : Window
     private void Enregistrer()
     {
         var cfg = _store.Charger();
-        cfg.DureeBufferSecondes = Controls.DureeSelectionnee(_duree);
+        cfg.DureeBufferSecondes = _lireDuree();
         cfg.Preset = Controls.PresetSelectionne(_preset);
         cfg.FormatSortie = Controls.FormatSelectionne(_format);
         cfg.SourcesEcrans = _lireEcrans();

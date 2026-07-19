@@ -29,7 +29,7 @@ public class ConfigStoreTests
     }
 
     [Fact]
-    public void Charger_BorneLaDureeEntre15Et1200Secondes()
+    public void Charger_BorneLaDureeEntre5Et1200Secondes()
     {
         var dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         var store = new ConfigStore(dir);
@@ -37,6 +37,14 @@ public class ConfigStoreTests
         cfg.DureeBufferSecondes = 99999;
         store.Enregistrer(cfg);
         Assert.Equal(1200, new ConfigStore(dir).Charger().DureeBufferSecondes);
+
+        cfg.DureeBufferSecondes = 2;
+        store.Enregistrer(cfg);
+        Assert.Equal(5, new ConfigStore(dir).Charger().DureeBufferSecondes);
+
+        cfg.DureeBufferSecondes = 9; // sous l'ancien minimum de 15 : doit passer tel quel
+        store.Enregistrer(cfg);
+        Assert.Equal(9, new ConfigStore(dir).Charger().DureeBufferSecondes);
     }
 
     [Fact]
