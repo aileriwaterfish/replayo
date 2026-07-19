@@ -30,6 +30,9 @@ public sealed class TrayMenuWindow : Window
         var pile = new StackPanel { Width = 268 };
 
         // En-tête : tuile dégradée + nom + état.
+        var glyphe = Controls.GlypheBoucle(15, Brushes.White);
+        glyphe.HorizontalAlignment = HorizontalAlignment.Center;
+        glyphe.VerticalAlignment = VerticalAlignment.Center;
         var tuile = new Border
         {
             Width = 24, Height = 24, CornerRadius = new CornerRadius(6),
@@ -37,6 +40,7 @@ public sealed class TrayMenuWindow : Window
                 (Color)ColorConverter.ConvertFromString("#7E8FFA"),
                 (Color)ColorConverter.ConvertFromString("#8A4FE6"),
                 new Point(0, 0), new Point(1, 1)),
+            Child = glyphe,
         };
         var titres = new StackPanel { Margin = new Thickness(10, 0, 0, 0) };
         titres.Children.Add(new TextBlock { Text = "Replayo", FontSize = 13, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White });

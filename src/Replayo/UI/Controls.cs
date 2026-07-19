@@ -122,6 +122,36 @@ internal static class Controls
         return (panneau, () => courante);
     }
 
+    /// Glyphe « boucle replay » du logo (paths de la maquette 3a, graisse petite taille),
+    /// dessiné vectoriellement dans la couleur demandée.
+    public static System.Windows.Controls.Image GlypheBoucle(double taille, System.Windows.Media.Brush pinceau)
+    {
+        var groupe = new System.Windows.Media.DrawingGroup();
+        // Rectangle transparent : fige les bornes sur le viewBox 48×48 (sinon DrawingImage recadre sur l'encre).
+        groupe.Children.Add(new System.Windows.Media.GeometryDrawing(
+            System.Windows.Media.Brushes.Transparent, null,
+            new System.Windows.Media.RectangleGeometry(new Rect(0, 0, 48, 48))));
+        var anneau = new System.Windows.Media.Pen(pinceau, 7)
+        {
+            StartLineCap = System.Windows.Media.PenLineCap.Round,
+            EndLineCap = System.Windows.Media.PenLineCap.Round,
+        };
+        groupe.Children.Add(new System.Windows.Media.GeometryDrawing(null, anneau,
+            System.Windows.Media.Geometry.Parse("M 24 9 A 15 15 0 1 1 9 24")));
+        var joint2 = new System.Windows.Media.Pen(pinceau, 2) { LineJoin = System.Windows.Media.PenLineJoin.Round };
+        groupe.Children.Add(new System.Windows.Media.GeometryDrawing(pinceau, joint2,
+            System.Windows.Media.Geometry.Parse("M 16.5 9 L 26.5 3.5 L 26.5 14.5 Z")));
+        var joint3 = new System.Windows.Media.Pen(pinceau, 3) { LineJoin = System.Windows.Media.PenLineJoin.Round };
+        groupe.Children.Add(new System.Windows.Media.GeometryDrawing(pinceau, joint3,
+            System.Windows.Media.Geometry.Parse("M 18.8 16.2 L 33 24 L 18.8 31.8 Z")));
+        groupe.Freeze();
+        return new System.Windows.Controls.Image
+        {
+            Source = new System.Windows.Media.DrawingImage(groupe),
+            Width = taille, Height = taille,
+        };
+    }
+
     /// CheckBox rendue en interrupteur 40×20 (style nommé « Interrupteur » du thème).
     public static CheckBox Interrupteur(bool coche) => new()
     {
