@@ -93,13 +93,14 @@ public sealed class RecorderService : IDisposable
     /// Fenêtre de rétention de tous les anneaux (mode LoL : étendue à 120 s en game).
     public void FenetreBuffer(int secondes) { foreach (var p in _pipelines) p.Ring.DureeMaxSecondes = secondes; }
 
-    /// Clip d'un intervalle de l'horloge de capture, sans ré-encodage, vers un chemin imposé.
-    public async Task<string?> ClipperIntervalleAsync(TimeSpan debut, TimeSpan fin, string sortie)
+    /// Clip d'un intervalle de l'horloge de capture, sans ré-encodage, vers un chemin
+    /// imposé. Rend aussi le début réel du fichier (frontière de segment ≤ debut).
+    public async Task<(string Chemin, TimeSpan DebutReel)?> ClipperIntervalleAsync(TimeSpan debut, TimeSpan fin, string sortie)
     {
         if (!EnCapture || _pipelines.Count == 0) return null;
-        var segments = _pipelines[0].Ring.SegmentsPourIntervalle(debut, fin);
+        var (segments, debutPremier) = _pipelines[0].Ring.IntervalleAvecDebut(debut, fin);
         if (segments.Count == 0) return null;
-        return await ClipService.AssemblerAsync(segments, sortie) ? sortie : null;
+        return await ClipService.AssemblerAsync(segments, sortie) ? (sortie, debutPremier) : null;
     }
 
     public async Task<List<string>> ClipperAsync()

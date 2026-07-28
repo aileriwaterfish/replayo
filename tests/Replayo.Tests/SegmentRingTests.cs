@@ -60,6 +60,21 @@ public class SegmentRingTests
     }
 
     [Fact]
+    public void IntervalleAvecDebut_RendLeDebutDuPremierSegment()
+    {
+        var ring = NouvelAnneau(dureeMax: 60);
+        for (int i = 0; i < 3; i++)
+        {
+            var chemin = ring.ProchainCheminSegment();
+            File.WriteAllText(chemin, "x");
+            ring.Ajouter(chemin, TimeSpan.FromSeconds(i * 10), TimeSpan.FromSeconds(i * 10 + 10));
+        }
+        var (segments, debut) = ring.IntervalleAvecDebut(TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(18));
+        Assert.Single(segments);
+        Assert.Equal(TimeSpan.FromSeconds(10), debut);
+    }
+
+    [Fact]
     public void DureeMax_ModifiableAChaud()
     {
         var ring = NouvelAnneau(dureeMax: 20);

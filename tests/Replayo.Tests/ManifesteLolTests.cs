@@ -13,8 +13,8 @@ public class ManifesteLolTests
             DureeCibleMinSec: 60, DureeCibleMaxSec: 150, SeuilMinSec: 45,
             Sequences:
             [
-                new("seq_01.mp4", Score: 65, DebutSec: 94, FinSec: 112, EvenementsSec: [100, 108]),
-                new("seq_02.mp4", Score: 25, DebutSec: 300, FinSec: 315, EvenementsSec: [306]),
+                new("seq_01.mp4", Score: 65, DebutSec: 94, FinSec: 112, FichierDebutSec: 90, EvenementsSec: [100, 108]),
+                new("seq_02.mp4", Score: 25, DebutSec: 300, FinSec: 315, FichierDebutSec: 295, EvenementsSec: [306]),
             ]);
 
         manifeste.Ecrire(chemin);

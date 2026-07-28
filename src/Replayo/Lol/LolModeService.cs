@@ -154,10 +154,10 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
         {
             _clippees.Add(s.Debut); // même en échec : ne pas retenter en boucle
             var fichier = $"seq_{++_numSeq:D2}.mp4";
-            var chemin = await recorder.ClipperIntervalleAsync(s.Debut, s.Fin, Path.Combine(_dossier, fichier));
-            if (chemin is null) { _numSeq--; continue; } // segments déjà purgés ou capture arrêtée
+            var clip = await recorder.ClipperIntervalleAsync(s.Debut, s.Fin, Path.Combine(_dossier, fichier));
+            if (clip is null) { _numSeq--; continue; } // segments déjà purgés ou capture arrêtée
             _manifeste.Add(new(fichier, s.Score, s.Debut.TotalSeconds, s.Fin.TotalSeconds,
-                s.Evenements.Select(t => t.TotalSeconds).ToArray()));
+                clip.Value.DebutReel.TotalSeconds, s.Evenements.Select(t => t.TotalSeconds).ToArray()));
         }
     }
 }

@@ -62,12 +62,20 @@ public sealed class SegmentRing(string dossierBuffer, int dureeMaxSecondes)
     }
 
     public IReadOnlyList<string> SegmentsPourIntervalle(TimeSpan debut, TimeSpan fin)
+        => IntervalleAvecDebut(debut, fin).Segments;
+
+    /// Segments chevauchant [debut, fin] + début réel du premier (la coupe précise
+    /// du montage a besoin de savoir où le fichier assemblé commence vraiment).
+    public (IReadOnlyList<string> Segments, TimeSpan DebutPremier) IntervalleAvecDebut(TimeSpan debut, TimeSpan fin)
     {
         lock (_verrou)
-            return _entrees.Where(e => e.Fin > debut && e.Debut < fin)
-                           .OrderBy(e => e.Debut)
-                           .Select(e => e.Chemin)
-                           .ToList();
+        {
+            var retenus = _entrees.Where(e => e.Fin > debut && e.Debut < fin)
+                                  .OrderBy(e => e.Debut)
+                                  .ToList();
+            return (retenus.Select(e => e.Chemin).ToList(),
+                    retenus.Count > 0 ? retenus[0].Debut : TimeSpan.Zero);
+        }
     }
 
     public IReadOnlyList<string> SegmentsPourDuree(TimeSpan duree, TimeSpan maintenant)
