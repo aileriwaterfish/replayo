@@ -22,6 +22,7 @@ public sealed class SettingsWindow : Window
     private readonly Func<List<int>> _lireEcrans;
     private readonly CheckBox _audioSys;
     private readonly CheckBox _audioMic;
+    private readonly CheckBox _modeLol;
     private readonly TextBox _raccourci;
     private readonly RadioButton _nomAuto;
     private readonly CheckBox _autostart;
@@ -68,6 +69,11 @@ public sealed class SettingsWindow : Window
         pile.Children.Add(carteSys);
         (_audioMic, var carteMic) = CarteInterrupteur("Micro", null, cfg.AudioMicro);
         pile.Children.Add(carteMic);
+
+        pile.Children.Add(Controls.Titre("Mode LoL"));
+        (_modeLol, var carteLol) = CarteInterrupteur("Condensés automatiques",
+            "Ranked solo/duo : clips des temps forts en fin de game", cfg.ModeLolActive);
+        pile.Children.Add(carteLol);
 
         pile.Children.Add(Controls.Titre("Clips"));
 
@@ -163,6 +169,7 @@ public sealed class SettingsWindow : Window
         cfg.SourcesEcrans = _lireEcrans();
         cfg.AudioSysteme = _audioSys.IsChecked == true;
         cfg.AudioMicro = _audioMic.IsChecked == true;
+        cfg.ModeLolActive = _modeLol.IsChecked == true;
         cfg.RaccourciModificateurs = _mods;
         cfg.RaccourciTouche = _vk;
         cfg.NommageManuel = _nomAuto.IsChecked != true;

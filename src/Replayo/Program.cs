@@ -66,6 +66,11 @@ public static class Program
         recorder.Demarrer(cfgCourante);
         BrancherRaccourci(cfgCourante);
 
+        // Mode LoL : détection de game + condensés automatiques (voir docs/superpowers/specs/2026-07-29).
+        using var lol = new Replayo.Lol.LolModeService(recorder, () => cfgCourante);
+        lol.Notification += tray.Notifier;
+        lol.Demarrer();
+
         // Réglages enregistrés → re-brancher le raccourci (il a pu changer).
         SettingsWindow.ConfigChangee += nouvelle => { cfgCourante = nouvelle; BrancherRaccourci(nouvelle); };
 
