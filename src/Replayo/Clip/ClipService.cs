@@ -23,9 +23,16 @@ public sealed class ClipService(ReplayoConfig cfg)
 
         var racine = string.IsNullOrWhiteSpace(cfg.DossierSortie) ? AppPaths.DossierSortieDefaut : cfg.DossierSortie;
         var sortie = ConstruireCheminSortie(racine, ForegroundAppTracker.NomApplication(), DateTime.Now, cfg.FormatSortie, suffixe);
+
+        return await AssemblerAsync(segments, sortie) ? sortie : null; // pas de son : le toast suffit
+    }
+
+    /// Assemble des segments en un fichier final SANS ré-encodage (démuxeur concat + -c copy).
+    public static async Task<bool> AssemblerAsync(IReadOnlyList<string> segments, string sortie)
+    {
         Directory.CreateDirectory(Path.GetDirectoryName(sortie)!);
 
-        // Liste concat ffmpeg (démuxeur concat : chemins entre apostrophes).
+        // Liste concat ffmpeg (chemins entre apostrophes).
         var liste = Path.Combine(Path.GetTempPath(), $"replayo_concat_{Guid.NewGuid():N}.txt");
         await File.WriteAllLinesAsync(liste, segments.Select(s => $"file '{s.Replace("'", "'\\''")}'"));
 
@@ -38,8 +45,7 @@ public sealed class ClipService(ReplayoConfig cfg)
         await proc.WaitForExitAsync();
         File.Delete(liste);
 
-        if (proc.ExitCode != 0) { Console.Error.WriteLine($"[clip] ffmpeg : {erreurs}"); return null; }
-
-        return sortie; // pas de son : le toast suffit comme confirmation
+        if (proc.ExitCode != 0) { Console.Error.WriteLine($"[clip] ffmpeg : {erreurs}"); return false; }
+        return true;
     }
 }

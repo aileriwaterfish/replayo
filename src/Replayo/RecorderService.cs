@@ -87,6 +87,22 @@ public sealed class RecorderService : IDisposable
 
     public void Redemarrer(ReplayoConfig cfg) { Arreter(); Demarrer(cfg); }
 
+    /// Horloge de capture du pipeline principal (null si capture arrêtée).
+    public TimeSpan? HorlogeCapture => _pipelines.Count > 0 ? _pipelines[0].Enc.HorlogeCapture : null;
+
+    /// Fenêtre de rétention de tous les anneaux (mode LoL : étendue à 120 s en game).
+    public void FenetreBuffer(int secondes) { foreach (var p in _pipelines) p.Ring.DureeMaxSecondes = secondes; }
+
+    /// Clip d'un intervalle de l'horloge de capture, sans ré-encodage, vers un chemin
+    /// imposé. Rend aussi le début réel du fichier (frontière de segment ≤ debut).
+    public async Task<(string Chemin, TimeSpan DebutReel)?> ClipperIntervalleAsync(TimeSpan debut, TimeSpan fin, string sortie)
+    {
+        if (!EnCapture || _pipelines.Count == 0) return null;
+        var (segments, debutPremier) = _pipelines[0].Ring.IntervalleAvecDebut(debut, fin);
+        if (segments.Count == 0) return null;
+        return await ClipService.AssemblerAsync(segments, sortie) ? (sortie, debutPremier) : null;
+    }
+
     public async Task<List<string>> ClipperAsync()
     {
         var resultats = new List<string>();

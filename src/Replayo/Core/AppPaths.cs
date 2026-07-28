@@ -9,6 +9,9 @@ public static class AppPaths
     public static string DossierBuffer =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Replayo", "buffer");
 
+    public static string DossierLol =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Replayo", "lol");
+
     public static string DossierSortieDefaut =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "Replayo");
 

@@ -9,8 +9,15 @@ namespace Replayo;
 public static class Program
 {
     [STAThread]
-    public static void Main()
+    public static void Main(string[] args)
     {
+        // Worker de montage LoL : même binaire, aucun UI, coexiste avec l'app (pas de mutex).
+        if (args is ["--montage", var dossierGame])
+        {
+            Environment.Exit(Lol.MontageService.ExecuterAsync(dossierGame).GetAwaiter().GetResult());
+            return;
+        }
+
         using var mutex = new Mutex(true, "Replayo-Instance-Unique", out var premiere);
         if (!premiere) return; // déjà lancé : ne rien faire
 
@@ -65,6 +72,11 @@ public static class Program
         }
         recorder.Demarrer(cfgCourante);
         BrancherRaccourci(cfgCourante);
+
+        // Mode LoL : détection de game + condensés automatiques (voir docs/superpowers/specs/2026-07-29).
+        using var lol = new Replayo.Lol.LolModeService(recorder, () => cfgCourante);
+        lol.Notification += tray.Notifier;
+        lol.Demarrer();
 
         // Réglages enregistrés → re-brancher le raccourci (il a pu changer).
         SettingsWindow.ConfigChangee += nouvelle => { cfgCourante = nouvelle; BrancherRaccourci(nouvelle); };
