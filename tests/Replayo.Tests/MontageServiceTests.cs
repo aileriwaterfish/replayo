@@ -73,6 +73,24 @@ public class MontageServiceTests
     }
 
     [Fact]
+    public void ArgumentsFfmpeg_AudioIsole_UtiliseLaPisteDediee()
+    {
+        var plans = new List<PlanDeCoupe>
+        {
+            new("seq_01.mp4", 4, 18, DebutCaptureSec: 94),
+            new("seq_02.mp4", 4, 18, DebutCaptureSec: 304),
+        };
+        var args = MontageService.ArgumentsFfmpeg(plans, @"C:\game", @"C:\game\condense.mp4",
+            audioLol: "audio_lol.m4a", audioLolDebutSec: 10);
+        Assert.Contains("audio_lol.m4a", args);
+        Assert.Contains("[2:a]", args);               // audio du plan 0 = entrée n+0
+        Assert.Contains("[3:a]", args);
+        Assert.DoesNotContain("[0:a]", args);         // le mix des clips n'est pas utilisé
+        Assert.Contains("-ss 84.000", args);          // 94 − 10 : alignement horloge de capture
+        Assert.Contains("-ss 294.000", args);
+    }
+
+    [Fact]
     public void ArgumentsFfmpeg_CropCentralEtConcat()
     {
         var plans = new List<PlanDeCoupe>

@@ -4,8 +4,9 @@ using Replayo.Core;
 
 namespace Replayo.Lol;
 
-/// Un plan de la timeline du condensé : départ et durée DANS le fichier source.
-public sealed record PlanDeCoupe(string Fichier, double DepartSec, double DureeSec);
+/// Un plan de la timeline du condensé : départ et durée DANS le fichier source,
+/// plus le départ en horloge de capture (pour aligner la piste audio isolée).
+public sealed record PlanDeCoupe(string Fichier, double DepartSec, double DureeSec, double DebutCaptureSec = 0);
 
 /// Worker de montage : manifest → condensé vertical 1080×1920 (cold open +
 /// chronologique, crop central, fondus audio 0,2 s, aucun texte, aucune musique).
@@ -36,7 +37,7 @@ public static class MontageService
         var dernierEvt = meilleure.EvenementsSec.Length > 0 ? meilleure.EvenementsSec.Max() : meilleure.FinSec;
         var finTeaser = dernierEvt - MargeResolutionSec;
         var depart = Math.Max(meilleure.FichierDebutSec, finTeaser - TeaserSec);
-        return new(meilleure.Fichier, depart - meilleure.FichierDebutSec, Math.Max(0.5, finTeaser - depart));
+        return new(meilleure.Fichier, depart - meilleure.FichierDebutSec, Math.Max(0.5, finTeaser - depart), depart);
     }
 
     /// Cold open (si ≥ 2 séquences) puis toutes les séquences en ordre chronologique.
@@ -47,24 +48,35 @@ public static class MontageService
         if (retenues.Count >= 2)
             plans.Add(ColdOpen(retenues.OrderByDescending(s => s.Score).First()));
         plans.AddRange(retenues.Select(s =>
-            new PlanDeCoupe(s.Fichier, s.DebutSec - s.FichierDebutSec, s.FinSec - s.DebutSec)));
+            new PlanDeCoupe(s.Fichier, s.DebutSec - s.FichierDebutSec, s.FinSec - s.DebutSec, s.DebutSec)));
         return plans;
     }
 
     /// Commande ffmpeg complète : -ss/-t par entrée, crop central 9:16 + scale,
     /// fondus audio en entrée/sortie de chaque plan, concat, H.264 + AAC.
-    public static string ArgumentsFfmpeg(List<PlanDeCoupe> plans, string dossier, string sortie)
+    /// Si audioLol est fourni (piste « jeu seul », plan C), l'audio de chaque plan
+    /// est pris dans cette piste (aligné par horloge de capture) au lieu du mix des clips.
+    public static string ArgumentsFfmpeg(List<PlanDeCoupe> plans, string dossier, string sortie,
+        string? audioLol = null, double audioLolDebutSec = 0)
     {
         var inv = CultureInfo.InvariantCulture;
+        var n = plans.Count;
         var entrees = string.Join(" ", plans.Select(p =>
             string.Create(inv, $"-ss {p.DepartSec:F3} -t {p.DureeSec:F3} -i \"{Path.Combine(dossier, p.Fichier)}\"")));
+
+        if (audioLol is not null)
+            entrees += " " + string.Join(" ", plans.Select(p =>
+                string.Create(inv, $"-ss {Math.Max(0, p.DebutCaptureSec - audioLolDebutSec):F3} -t {p.DureeSec:F3} -i \"{Path.Combine(dossier, audioLol)}\"")));
+
+        // L'audio du plan i vient de l'entrée i (mix du clip) ou n+i (piste jeu seul).
+        int EntreeAudio(int i) => audioLol is null ? i : n + i;
 
         var filtres = string.Join("", plans.Select((p, i) =>
             string.Create(inv,
                 $"[{i}:v]crop=608:1080:656:0,scale=1080:1920,setsar=1[v{i}];" +
-                $"[{i}:a]afade=t=in:d={FonduAudioSec:F1},afade=t=out:st={Math.Max(0, p.DureeSec - FonduAudioSec):F3}:d={FonduAudioSec:F1}[a{i}];")));
+                $"[{EntreeAudio(i)}:a]afade=t=in:d={FonduAudioSec:F1},afade=t=out:st={Math.Max(0, p.DureeSec - FonduAudioSec):F3}:d={FonduAudioSec:F1}[a{i}];")));
         var concat = string.Join("", plans.Select((_, i) => $"[v{i}][a{i}]")) +
-                     $"concat=n={plans.Count}:v=1:a=1[v][a]";
+                     $"concat=n={n}:v=1:a=1[v][a]";
 
         return $"-hide_banner -loglevel error {entrees} -filter_complex \"{filtres}{concat}\" " +
                $"-map \"[v]\" -map \"[a]\" -c:v libx264 -preset veryfast -crf 21 -pix_fmt yuv420p " +
@@ -82,7 +94,14 @@ public static class MontageService
 
         var plans = Timeline(manifeste);
         var sortie = Path.Combine(dossierGame, "condense_vertical.mp4");
-        var psi = new ProcessStartInfo(AppPaths.FfmpegExe, ArgumentsFfmpeg(plans, dossierGame, sortie))
+
+        // Piste « jeu seul » (plan C) si présente ; sinon mix complet + avertissement.
+        var audioLol = manifeste.AudioLolFichier is { } a && File.Exists(Path.Combine(dossierGame, a)) ? a : null;
+        if (audioLol is null)
+            Console.Error.WriteLine("[montage] pas de piste audio isolée : le condensé contient le MIX COMPLET (musique/vocal inclus).");
+
+        var psi = new ProcessStartInfo(AppPaths.FfmpegExe,
+            ArgumentsFfmpeg(plans, dossierGame, sortie, audioLol, manifeste.AudioLolDebutSec ?? 0))
         { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true };
 
         using var proc = Process.Start(psi)!;

@@ -12,7 +12,9 @@ public sealed record SequenceManifeste(string Fichier, int Score, double DebutSe
 public sealed record ManifesteLol(
     int Version, DateTime Date, int Queue, bool Victoire, bool Retenue,
     int DureeCibleMinSec, int DureeCibleMaxSec, int SeuilMinSec,
-    List<SequenceManifeste> Sequences)
+    List<SequenceManifeste> Sequences,
+    string? AudioLolFichier = null,   // v2 : piste « jeu seul » (audio_lol.m4a), null si indisponible
+    double? AudioLolDebutSec = null)  // v2 : horloge de capture au début de cette piste
 {
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 
