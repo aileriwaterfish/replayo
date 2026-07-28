@@ -9,6 +9,9 @@ public sealed class SegmentRing(string dossierBuffer, int dureeMaxSecondes)
     private readonly object _verrou = new();
     private int _compteur;
 
+    /// Fenêtre de rétention, modifiable à chaud (mode LoL : 120 s le temps d'une game).
+    public int DureeMaxSecondes { get; set; } = dureeMaxSecondes;
+
     public void PurgerAuDemarrage()
     {
         Directory.CreateDirectory(dossierBuffer);
@@ -46,7 +49,7 @@ public sealed class SegmentRing(string dossierBuffer, int dureeMaxSecondes)
             // Supprime tout segment entièrement antérieur à la fenêtre maximale.
             // (La fenêtre d'un clip se termine à l'horloge courante, jamais avant la fin
             // du dernier segment : aucun segment sous cette limite ne peut être requis.)
-            var limite = fin - TimeSpan.FromSeconds(dureeMaxSecondes);
+            var limite = fin - TimeSpan.FromSeconds(DureeMaxSecondes);
             for (int i = _entrees.Count - 1; i >= 0; i--)
             {
                 if (_entrees[i].Fin < limite)
@@ -56,6 +59,15 @@ public sealed class SegmentRing(string dossierBuffer, int dureeMaxSecondes)
                 }
             }
         }
+    }
+
+    public IReadOnlyList<string> SegmentsPourIntervalle(TimeSpan debut, TimeSpan fin)
+    {
+        lock (_verrou)
+            return _entrees.Where(e => e.Fin > debut && e.Debut < fin)
+                           .OrderBy(e => e.Debut)
+                           .Select(e => e.Chemin)
+                           .ToList();
     }
 
     public IReadOnlyList<string> SegmentsPourDuree(TimeSpan duree, TimeSpan maintenant)

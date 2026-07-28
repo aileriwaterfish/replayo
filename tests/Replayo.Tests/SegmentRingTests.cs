@@ -45,6 +45,44 @@ public class SegmentRingTests
     }
 
     [Fact]
+    public void SegmentsPourIntervalle_RendLesSegmentsChevauchants()
+    {
+        var ring = NouvelAnneau(dureeMax: 60);
+        for (int i = 0; i < 3; i++)
+        {
+            var chemin = ring.ProchainCheminSegment();
+            File.WriteAllText(chemin, "x");
+            ring.Ajouter(chemin, TimeSpan.FromSeconds(i * 10), TimeSpan.FromSeconds(i * 10 + 10));
+        }
+        Assert.Single(ring.SegmentsPourIntervalle(TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(18)));
+        Assert.Equal(3, ring.SegmentsPourIntervalle(TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(22)).Count);
+        Assert.Empty(ring.SegmentsPourIntervalle(TimeSpan.FromSeconds(35), TimeSpan.FromSeconds(40)));
+    }
+
+    [Fact]
+    public void DureeMax_ModifiableAChaud()
+    {
+        var ring = NouvelAnneau(dureeMax: 20);
+        ring.DureeMaxSecondes = 120; // mode LoL : fenêtre étendue
+        var chemins = new List<string>();
+        for (int i = 0; i < 6; i++)
+        {
+            var chemin = ring.ProchainCheminSegment();
+            File.WriteAllText(chemin, "x");
+            chemins.Add(chemin);
+            ring.Ajouter(chemin, TimeSpan.FromSeconds(i * 10), TimeSpan.FromSeconds(i * 10 + 10));
+        }
+        Assert.True(File.Exists(chemins[0])); // à t=60, fenêtre 120 s → rien purgé
+
+        ring.DureeMaxSecondes = 20; // fin de game : retour à la normale
+        var dernier = ring.ProchainCheminSegment();
+        File.WriteAllText(dernier, "x");
+        ring.Ajouter(dernier, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(70));
+        Assert.False(File.Exists(chemins[0])); // purge reprise au prochain Ajouter
+        Assert.True(File.Exists(dernier));
+    }
+
+    [Fact]
     public void PurgerAuDemarrage_VideLeDossier()
     {
         var ring = NouvelAnneau();
