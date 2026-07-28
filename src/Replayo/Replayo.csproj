@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.3.0" />
+    <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
