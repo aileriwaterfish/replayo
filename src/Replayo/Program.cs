@@ -18,6 +18,18 @@ public static class Program
             return;
         }
 
+        // Diagnostic audio : capture N secondes du son d'un processus vers un wav.
+        if (args is ["--test-loopback", var pid, var secondes, var sortieWav])
+        {
+            using var capture = new Audio.ProcessLoopbackCapture(int.Parse(pid));
+            using var wav = new NAudio.Wave.WaveFileWriter(sortieWav, Audio.ProcessLoopbackCapture.Format);
+            capture.EchantillonsRecus += (octets, n) => { lock (wav) wav.Write(octets, 0, n); };
+            capture.Demarrer();
+            Thread.Sleep(TimeSpan.FromSeconds(int.Parse(secondes)));
+            Environment.Exit(0);
+            return;
+        }
+
         using var mutex = new Mutex(true, "Replayo-Instance-Unique", out var premiere);
         if (!premiere) return; // déjà lancé : ne rien faire
 
