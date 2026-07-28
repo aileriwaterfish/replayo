@@ -9,8 +9,15 @@ namespace Replayo;
 public static class Program
 {
     [STAThread]
-    public static void Main()
+    public static void Main(string[] args)
     {
+        // Worker de montage LoL : même binaire, aucun UI, coexiste avec l'app (pas de mutex).
+        if (args is ["--montage", var dossierGame])
+        {
+            Environment.Exit(Lol.MontageService.ExecuterAsync(dossierGame).GetAwaiter().GetResult());
+            return;
+        }
+
         using var mutex = new Mutex(true, "Replayo-Instance-Unique", out var premiere);
         if (!premiere) return; // déjà lancé : ne rien faire
 

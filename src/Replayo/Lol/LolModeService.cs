@@ -140,9 +140,21 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
         recorder.FenetreBuffer(cfg().DureeBufferSecondes);
         _live?.Dispose(); _live = null;
         Notification?.Invoke(retenue
-            ? $"Mode LoL : {_manifeste.Count} séquence(s) ({totalSec:F0} s) prêtes pour le montage."
+            ? $"Mode LoL : {_manifeste.Count} séquence(s) ({totalSec:F0} s) — montage lancé."
             : "Mode LoL : game sautée (pas assez de temps forts). Clips bruts conservés.");
+
+        if (retenue) LancerWorkerMontage(_dossier);
         _etat = Etat.AttenteFinProcessus;
+    }
+
+    private static void LancerWorkerMontage(string dossier)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(Environment.ProcessPath!, $"--montage \"{dossier}\"")
+            { UseShellExecute = false, CreateNoWindow = true });
+        }
+        catch (Exception e) { Console.Error.WriteLine($"[lol] worker montage : {e.Message}"); }
     }
 
     private List<SequenceLol> Sequences()
