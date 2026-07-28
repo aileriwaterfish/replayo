@@ -15,6 +15,8 @@ namespace Replayo.UI;
 /// Reconstruit à chaque ouverture : état et raccourci toujours à jour.
 public sealed class TrayMenuWindow : Window
 {
+    private bool _fermetureDemandee; // Close() pendant la fermeture jette InvalidOperationException
+
     public TrayMenuWindow(RecorderService recorder, Action sauvegarderClip, Action ouvrirDossier, Action ouvrirReglages, Action quitter)
     {
         var cfg = new ConfigStore().Charger();
@@ -25,7 +27,7 @@ public sealed class TrayMenuWindow : Window
         Topmost = true;
         ShowInTaskbar = false;
         SizeToContent = SizeToContent.WidthAndHeight;
-        Deactivated += (_, _) => Close();
+        Deactivated += (_, _) => Fermer();
 
         var pile = new StackPanel { Width = 268 };
 
@@ -99,6 +101,13 @@ public sealed class TrayMenuWindow : Window
         };
     }
 
+    private void Fermer()
+    {
+        if (_fermetureDemandee) return;
+        _fermetureDemandee = true;
+        Close();
+    }
+
     private static Border Separateur() => new()
     {
         Height = 1,
@@ -120,7 +129,7 @@ public sealed class TrayMenuWindow : Window
         var item = new Border { CornerRadius = new CornerRadius(4), Padding = new Thickness(12, 9, 12, 9), Background = Brushes.Transparent, Child = ligne, Cursor = Cursors.Hand };
         item.MouseEnter += (_, _) => item.Background = new SolidColorBrush(Color.FromArgb(15, 255, 255, 255));
         item.MouseLeave += (_, _) => item.Background = Brushes.Transparent;
-        item.MouseLeftButtonUp += (_, _) => { Close(); action(); };
+        item.MouseLeftButtonUp += (_, _) => { Fermer(); action(); };
         return item;
     }
 }
