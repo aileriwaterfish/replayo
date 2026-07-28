@@ -27,6 +27,7 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
 
     // État d'une game en cours.
     private LiveClientClient? _live;
+    private AudioLolRecorder? _audio;
     private string? _moi;
     private string _dossier = "";
     private bool _victoire;
@@ -87,6 +88,11 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
         _dossier = Path.Combine(AppPaths.DossierLol, $"{DateTime.Now:yyyy-MM-dd_HH\\hmm\\mss}");
         Directory.CreateDirectory(_dossier);
         recorder.FenetreBuffer(FenetreLolSecondes);
+
+        // Piste audio « jeu seul » (condensés sans Spotify/Discord/micro).
+        var pidJeu = Process.GetProcessesByName(ProcessusJeu).FirstOrDefault()?.Id;
+        _audio = pidJeu is { } p ? AudioLolRecorder.Demarrer(p, _dossier, () => recorder.HorlogeCapture) : null;
+
         _etat = Etat.EnGame;
     }
 
@@ -131,11 +137,14 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
             await ClipperAsync(sequences.Where(s => !_clippees.Contains(s.Debut)).ToList());
         }
 
+        _audio?.Terminer();
         var totalSec = _manifeste.Sum(s => s.FinSec - s.DebutSec);
         var retenue = totalSec >= SeuilMinSec;
-        new ManifesteLol(1, DateTime.Now, QueueSoloDuo, _victoire, retenue,
-            DureeCibleMinSec, DureeCibleMaxSec, SeuilMinSec, new(_manifeste))
+        new ManifesteLol(2, DateTime.Now, QueueSoloDuo, _victoire, retenue,
+            DureeCibleMinSec, DureeCibleMaxSec, SeuilMinSec, new(_manifeste),
+            _audio is null ? null : AudioLolRecorder.NomFichier, _audio?.DebutCaptureSec)
             .Ecrire(Path.Combine(_dossier, "manifest.json"));
+        _audio = null;
 
         recorder.FenetreBuffer(cfg().DureeBufferSecondes);
         _live?.Dispose(); _live = null;
