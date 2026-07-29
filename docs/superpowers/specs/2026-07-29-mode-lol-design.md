@@ -34,9 +34,9 @@ TikTok mobile (son tendance + description + publier).
     périmètre tant que Riot ne le fournit pas.)
 - **Séquences** : événements distants de **< 18 s** fusionnés (élargi de 12 à
   18 s après analyse d'une vidéo IrelKing : les escarmouches restent d'un seul
-  tenant) ; fenêtre de **5 s avant / 5 s après** (réglage utilisateur, après
-  itérations 6/4 → 10/7 → 8/5 → 5/5), **sauf gros play (score ≥ 50) : 10 s
-  avant** pour montrer la rotation et l'engagement (mise en scène
+  tenant) ; fenêtre de **5 s avant / 3 s après** (réglage utilisateur, après
+  itérations 6/4 → 10/7 → 8/5 → 5/5 → 5/3), **sauf gros play (score ≥ 50) :
+  10 s avant** pour montrer la rotation et l'engagement (mise en scène
   proportionnelle, style IrelKing) ; score = somme des événements.
 - **Style de montage validé sur référence** (vidéo IrelKing analysée le 29/07 :
   4 cuts en 25 min, aucun zoom/slow-mo/transition, fights toujours entiers,
@@ -47,7 +47,9 @@ TikTok mobile (son tendance + description + publier).
   soir) : clip dédié de la fin de game (~6 s avant / 6 s après le GameEnd),
   victoire **ou défaite**, jamais éjecté par le tri (son temps est déduit du
   budget des autres séquences), jamais utilisé comme cold open, et exclu du
-  seuil des 45 s.
+  seuil des 45 s. **Repli si GameEnd n'est jamais reçu** (client fermé trop
+  vite, vécu sur un surrender le 30/07) : clip des ~11 dernières secondes
+  capturées avant la disparition du processus — l'écran de fin y figure.
 - **Montage** : cold open de 3-4 s sur la meilleure séquence **coupée avant sa
   résolution**, puis les séquences dans l'ordre chronologique. Cuts francs,
   fondu audio ~200 ms entre séquences, **aucun texte incrusté**, aucune

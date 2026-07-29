@@ -16,7 +16,7 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
     public const int DureeCibleMaxSec = 240; // l'utilisateur préfère du contexte à la brièveté
     public static readonly TimeSpan Fusion = TimeSpan.FromSeconds(18); // escarmouches d'un seul tenant (style IrelKing)
     public static readonly TimeSpan Avant = TimeSpan.FromSeconds(5);
-    public static readonly TimeSpan Apres = TimeSpan.FromSeconds(5);
+    public static readonly TimeSpan Apres = TimeSpan.FromSeconds(3);
     public static readonly TimeSpan AvantMajeur = TimeSpan.FromSeconds(10); // gros play : montrer la rotation/l'engagement
     public const int SeuilMajeur = 50;
     public static readonly TimeSpan ResultatAvant = TimeSpan.FromSeconds(6);
@@ -162,16 +162,18 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
             await ClipperAsync(sequences.Where(s => !_clippees.Contains(s.Debut)).ToList());
 
             // Clip du résultat (victoire OU défaite) : il clôt toujours la vidéo.
-            if (_tFinDeGame is { } tFin)
-            {
-                var fichier = $"seq_{++_numSeq:D2}.mp4";
-                var clip = await recorder.ClipperIntervalleAsync(
-                    tFin - ResultatAvant, tFin + ResultatApres, Path.Combine(_dossier, fichier));
-                if (clip is null) _numSeq--;
-                else _manifeste.Add(new(fichier, 0, (tFin - ResultatAvant).TotalSeconds,
-                    (tFin + ResultatApres).TotalSeconds, clip.Value.DebutReel.TotalSeconds,
-                    [tFin.TotalSeconds], EstResultat: true));
-            }
+            // GameEnd raté (client fermé trop vite, vécu sur un surrender) → repli sur
+            // les derniers instants capturés avant la mort du processus : l'écran de
+            // fin y figure, Replayo filme l'écran en continu.
+            var (debutRes, finRes) = _tFinDeGame is { } tFin
+                ? (tFin - ResultatAvant, tFin + ResultatApres)
+                : (_horlogeCloture!.Value - TimeSpan.FromSeconds(12), _horlogeCloture.Value - TimeSpan.FromSeconds(1));
+            if (debutRes < TimeSpan.Zero) debutRes = TimeSpan.Zero;
+            var fichierRes = $"seq_{++_numSeq:D2}.mp4";
+            var clipRes = await recorder.ClipperIntervalleAsync(debutRes, finRes, Path.Combine(_dossier, fichierRes));
+            if (clipRes is null) _numSeq--;
+            else _manifeste.Add(new(fichierRes, 0, debutRes.TotalSeconds, finRes.TotalSeconds,
+                clipRes.Value.DebutReel.TotalSeconds, [finRes.TotalSeconds], EstResultat: true));
         }
 
         _audio?.Terminer();
