@@ -14,6 +14,7 @@ public sealed record PlanDeCoupe(string Fichier, double DepartSec, double DureeS
 public static class MontageService
 {
     private const double FonduAudioSec = 0.2;
+    private const double FonduVideoSec = 0.25; // micro fondu au noir entre séquences
 
     /// Ordre chronologique conservé ; retire la séquence au score le plus faible
     /// (à égalité : la plus longue) tant que la durée totale dépasse maxSec.
@@ -64,12 +65,14 @@ public static class MontageService
         // sur un fond du même gameplay flouté qui remplit le 9:16.
         // fps=60 + settb : normalise les entrées à cadence irrégulière (capture VFR)
         // avant le concat, sinon les timestamps se cassent et la vidéo saccade.
+        // Micro fondu au noir (0,25 s) en entrée/sortie de chaque plan : respiration
+        // entre les séquences (feedback : transitions trop soudaines).
         var filtres = string.Join("", plans.Select((p, i) =>
             string.Create(inv,
                 $"[{i}:v]fps=60,setsar=1,split=2[bg{i}][fg{i}];" +
                 $"[bg{i}]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=luma_radius=25:luma_power=2[b{i}];" +
                 $"[fg{i}]crop=1080:1080:420:0[f{i}];" +
-                $"[b{i}][f{i}]overlay=0:420,settb=AVTB[v{i}];" +
+                $"[b{i}][f{i}]overlay=0:420,fade=t=in:d={FonduVideoSec:F2},fade=t=out:st={Math.Max(0, p.DureeSec - FonduVideoSec):F3}:d={FonduVideoSec:F2},settb=AVTB[v{i}];" +
                 $"[{EntreeAudio(i)}:a]aresample=48000:async=1,afade=t=in:d={FonduAudioSec:F1},afade=t=out:st={Math.Max(0, p.DureeSec - FonduAudioSec):F3}:d={FonduAudioSec:F1}[a{i}];")));
         var concat = string.Join("", plans.Select((_, i) => $"[v{i}][a{i}]")) +
                      $"concat=n={n}:v=1:a=1[v][a]";

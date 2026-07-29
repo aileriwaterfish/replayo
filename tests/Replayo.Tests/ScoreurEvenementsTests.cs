@@ -22,8 +22,8 @@ public class ScoreurEvenementsTests
         => Assert.Equal(0, ScoreurEvenements.Score(new(2, "ChampionKill", 100, Tueur: "Ennemi#1", Victime: Moi), Moi));
 
     [Fact]
-    public void KillEntreTiers_Ignore()
-        => Assert.Equal(ScoreurEvenements.NonRetenu, ScoreurEvenements.Score(new(3, "ChampionKill", 100, Tueur: "A#1", Victime: "B#2"), Moi));
+    public void KillEntreTiers_ContexteFusable_0()
+        => Assert.Equal(0, ScoreurEvenements.Score(new(3, "ChampionKill", 100, Tueur: "A#1", Victime: "B#2"), Moi));
 
     [Theory]
     [InlineData(2, 15)]

@@ -11,7 +11,7 @@ public static class ConstructeurSequences
 {
     public static List<SequenceLol> Construire(
         IEnumerable<(TimeSpan T, int Score)> evenements, TimeSpan fusion, TimeSpan avant, TimeSpan apres,
-        TimeSpan? avantMajeur = null, int seuilMajeur = 50, TimeSpan? fusionMort = null)
+        TimeSpan? avantMajeur = null, int seuilMajeur = 50, TimeSpan? fusionContexte = null)
     {
         var tri = evenements.OrderBy(e => e.T).ToList();
         var sequences = new List<SequenceLol>();
@@ -35,10 +35,11 @@ public static class ConstructeurSequences
         {
             if (groupe.Count > 0)
             {
-                // Une mort (score 0) ne se rattache à un play que de très près
-                // (fusionMort) : mourir DANS l'action prolonge la séquence, mourir
-                // 20 s après le kill est un temps mort qui n'a rien à faire dedans.
-                var seuil = fusionMort is { } fm && (e.Score == 0 || groupe[^1].Score == 0) ? fm : fusion;
+                // Un événement de contexte (score 0 : ma mort, kill/mort d'un allié)
+                // ne se rattache à un play que de très près (fusionContexte) : le
+                // teamfight se montre en entier, mais mourir ou voir un kill allié
+                // 20 s après mon action est un temps mort qui n'a rien à faire dedans.
+                var seuil = fusionContexte is { } fc && (e.Score == 0 || groupe[^1].Score == 0) ? fc : fusion;
                 if (e.T - groupe[^1].T > seuil) Emettre();
             }
             groupe.Add(e);

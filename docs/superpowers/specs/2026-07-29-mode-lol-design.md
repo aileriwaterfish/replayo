@@ -26,11 +26,14 @@ TikTok mobile (son tendance + description + publier).
   - kill solo 25 pts ; multikill = bonus (double +15, triple +35, quadra +55,
     penta +75, cumulé au kill → 40/60/80/100) ; first blood +15 ;
     vol de dragon 70 / vol de baron 80 ; moment de victoire 30.
-  - **Morts = 0 pt mais fusionnables, avec fenêtre serrée (8 s)** : une mort
-    dans l'action prolonge la séquence (le 1v3 où il tue 2 et meurt sur le 3ᵉ
-    se montre EN ENTIER, mort comprise) — mais une mort à plus de ~8 s du play
-    est écartée (feedback du 30/07 : « kill, 20 s d'attente, puis me voir
-    mourir » = séquence ratée). Une mort isolée n'est jamais retenue.
+  - **Événements de contexte = 0 pt, fusionnables en fenêtre serrée (8 s)** :
+    ses morts ET tous les kills où il n'est pas le tueur (kills alliés, morts
+    d'alliés). Un teamfight gagnant se montre EN ENTIER même s'il n'y prend pas
+    tous les kills (feedback du 30/07 : « le Ziggs qui termine l'Akali était
+    coupé »), et le 1v3 où il meurt sur le 3ᵉ reste complet. Mais un événement
+    de contexte à plus de ~8 s du play est écarté (feedback du 30/07 : « kill,
+    20 s d'attente, puis me voir mourir » = séquence ratée). Le contexte seul
+    ne fait jamais une séquence (score total 0 → jamais retenu).
   - Exclus : assists, tours, dragons/barons non volés, morts seules.
     (Shutdowns : souhaités mais l'API Live Client ne les expose pas — hors
     périmètre tant que Riot ne le fournit pas.)
@@ -54,8 +57,9 @@ TikTok mobile (son tendance + description + publier).
   capturées avant la disparition du processus — l'écran de fin y figure.
 - **Montage** : séquences dans l'ordre **purement chronologique** (le cold
   open initialement prévu a été retiré à la demande de l'utilisateur le
-  30/07). Cuts francs,
-  fondu audio ~200 ms entre séquences, **aucun texte incrusté**, aucune
+  30/07). **Micro fondu au noir de 0,25 s entre les séquences** (feedback du
+  30/07 : transitions trop soudaines — le fondu donne le temps de « digérer »),
+  fondu audio ~200 ms, **aucun texte incrusté**, aucune
   musique (le son tendance est ajouté par l'utilisateur dans TikTok).
   **Cadrage « zoom réduit » (validé par l'utilisateur le 29/07 au soir)** :
   carré central 1080×1080 (~56 % de la largeur — le champion sort rarement du
