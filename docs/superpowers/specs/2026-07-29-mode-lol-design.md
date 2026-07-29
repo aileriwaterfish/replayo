@@ -26,9 +26,11 @@ TikTok mobile (son tendance + description + publier).
   - kill solo 25 pts ; multikill = bonus (double +15, triple +35, quadra +55,
     penta +75, cumulé au kill → 40/60/80/100) ; first blood +15 ;
     vol de dragon 70 / vol de baron 80 ; moment de victoire 30.
-  - **Morts = 0 pt mais fusionnables** : une mort dans l'action prolonge la
-    séquence (le 1v3 où il tue 2 et meurt sur le 3ᵉ se montre EN ENTIER, mort
-    comprise). Une mort isolée (séquence à 0 pt) n'est jamais retenue.
+  - **Morts = 0 pt mais fusionnables, avec fenêtre serrée (8 s)** : une mort
+    dans l'action prolonge la séquence (le 1v3 où il tue 2 et meurt sur le 3ᵉ
+    se montre EN ENTIER, mort comprise) — mais une mort à plus de ~8 s du play
+    est écartée (feedback du 30/07 : « kill, 20 s d'attente, puis me voir
+    mourir » = séquence ratée). Une mort isolée n'est jamais retenue.
   - Exclus : assists, tours, dragons/barons non volés, morts seules.
     (Shutdowns : souhaités mais l'API Live Client ne les expose pas — hors
     périmètre tant que Riot ne le fournit pas.)

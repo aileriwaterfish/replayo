@@ -15,6 +15,7 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
     public const int DureeCibleMinSec = 60;
     public const int DureeCibleMaxSec = 240; // l'utilisateur préfère du contexte à la brièveté
     public static readonly TimeSpan Fusion = TimeSpan.FromSeconds(18); // escarmouches d'un seul tenant (style IrelKing)
+    public static readonly TimeSpan FusionMort = TimeSpan.FromSeconds(8); // une mort ne se rattache au play que de près
     public static readonly TimeSpan Avant = TimeSpan.FromSeconds(5);
     public static readonly TimeSpan Apres = TimeSpan.FromSeconds(3);
     public static readonly TimeSpan AvantMajeur = TimeSpan.FromSeconds(10); // gros play : montrer la rotation/l'engagement
@@ -208,7 +209,7 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
     }
 
     private List<SequenceLol> Sequences()
-        => ConstructeurSequences.Construire(_retenus, Fusion, Avant, Apres, AvantMajeur, SeuilMajeur);
+        => ConstructeurSequences.Construire(_retenus, Fusion, Avant, Apres, AvantMajeur, SeuilMajeur, FusionMort);
 
     private async Task ClipperAsync(List<SequenceLol> aClipper)
     {

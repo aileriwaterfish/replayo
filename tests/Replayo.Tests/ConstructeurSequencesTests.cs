@@ -44,6 +44,43 @@ public class ConstructeurSequencesTests
         => Assert.Empty(Construire((200, 0)));
 
     [Fact]
+    public void MortLoinApresLeKill_EcarteeDeLaSequence()
+    {
+        // kill à 100 s, mort à 115 s (15 s plus tard : hors fenêtre mort de 8 s,
+        // mais dans la fusion normale de 12 s ? non — 15 > 12 ici ; testons avec fusion 18)
+        var seqs = ConstructeurSequences.Construire(
+            [(TimeSpan.FromSeconds(100), 25), (TimeSpan.FromSeconds(115), 0)],
+            fusion: TimeSpan.FromSeconds(18), Avant, Apres, fusionMort: TimeSpan.FromSeconds(8));
+        var s = Assert.Single(seqs); // la mort est écartée (groupe séparé à 0 pt)
+        Assert.Equal(TimeSpan.FromSeconds(104), s.Fin); // 100 + 4 (Apres du test) : fini au kill
+        Assert.Single(s.Evenements);
+    }
+
+    [Fact]
+    public void MortJusteApresLeKill_ResteDansLaSequence()
+    {
+        // le 1v3 : mort 5 s après le kill → dans la fenêtre mort de 8 s
+        var seqs = ConstructeurSequences.Construire(
+            [(TimeSpan.FromSeconds(100), 25), (TimeSpan.FromSeconds(105), 0)],
+            fusion: TimeSpan.FromSeconds(18), Avant, Apres, fusionMort: TimeSpan.FromSeconds(8));
+        var s = Assert.Single(seqs);
+        Assert.Equal(TimeSpan.FromSeconds(109), s.Fin); // mort (105) + 4
+        Assert.Equal(2, s.Evenements.Count);
+    }
+
+    [Fact]
+    public void MortLoinAvantLeKill_NAllongePasLOuverture()
+    {
+        // mort à 100 s, kill à 115 s : sans la fenêtre mort, le kill fusionnerait
+        // (15 < 18) et la séquence commencerait 5 s avant la mort → 20 s creuses
+        var seqs = ConstructeurSequences.Construire(
+            [(TimeSpan.FromSeconds(100), 0), (TimeSpan.FromSeconds(115), 25)],
+            fusion: TimeSpan.FromSeconds(18), Avant, Apres, fusionMort: TimeSpan.FromSeconds(8));
+        var s = Assert.Single(seqs);
+        Assert.Equal(TimeSpan.FromSeconds(109), s.Debut); // 115 − 6 (Avant du test) : la mort est écartée
+    }
+
+    [Fact]
     public void DebutClampeAZero()
     {
         var seqs = Construire((2, 25));
