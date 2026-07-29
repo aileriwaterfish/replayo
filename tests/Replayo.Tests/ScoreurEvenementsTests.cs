@@ -10,6 +10,14 @@ public class ScoreurEvenementsTests
         => Assert.Equal(25, ScoreurEvenements.Score(new(1, "ChampionKill", 100, Tueur: Moi, Victime: "Ennemi#1"), Moi));
 
     [Fact]
+    public void KillParMoi_SansTagDansLEvenement_25()
+        => Assert.Equal(25, ScoreurEvenements.Score(new(1, "ChampionKill", 100, Tueur: "Léo", Victime: "Ennemi"), Moi));
+
+    [Fact]
+    public void KillParUnHomonymeAvecAutreTag_ReconnuQuandMemePrefixe()
+        => Assert.True(ScoreurEvenements.MemeJoueur("Léo#NA1", Moi)); // limite assumée : préfixe identique = moi
+
+    [Fact]
     public void MaMort_0_Fusable()
         => Assert.Equal(0, ScoreurEvenements.Score(new(2, "ChampionKill", 100, Tueur: "Ennemi#1", Victime: Moi), Moi));
 

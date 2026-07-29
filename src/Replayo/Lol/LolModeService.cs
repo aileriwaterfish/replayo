@@ -116,6 +116,9 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
         {
             if (!_idsVus.Add(e.Id)) continue;
             var score = ScoreurEvenements.Score(e, _moi);
+            // Journal brut : indispensable pour diagnostiquer les formats réels de Riot.
+            File.AppendAllText(Path.Combine(_dossier, "events.log"),
+                $"{e.Id}\t{e.Type}\tt={e.TempsJeuSec:F1}\ttueur={e.Tueur}\tvictime={e.Victime}\tbenef={e.Beneficiaire}\tserie={e.Serie}\tvole={e.Vole}\tresultat={e.Resultat}\tmoi={_moi}\tscore={score}\n");
             if (score >= 0)
             {
                 var t = horloge.Value - TimeSpan.FromSeconds(gameTime.Value - e.TempsJeuSec);
