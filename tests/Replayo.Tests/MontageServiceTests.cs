@@ -98,8 +98,9 @@ public class MontageServiceTests
             new("seq_01.mp4", 5, 3.5), new("seq_01.mp4", 5, 60), new("seq_02.mp4", 5, 60),
         };
         var args = MontageService.ArgumentsFfmpeg(plans, @"C:\game", @"C:\game\condense.mp4");
-        Assert.Contains("crop=608:1080:656:0", args);
-        Assert.Contains("scale=1080:1920", args);
+        Assert.Contains("crop=1080:1080:420:0", args); // carré central (zoom réduit)
+        Assert.Contains("boxblur", args);              // fond flouté 9:16
+        Assert.Contains("overlay=0:420", args);
         Assert.Contains("concat=n=3:v=1:a=1", args);
         Assert.Contains("libx264", args);
         Assert.Contains("condense.mp4", args);

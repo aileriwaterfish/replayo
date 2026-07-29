@@ -71,11 +71,17 @@ public static class MontageService
         // L'audio du plan i vient de l'entrée i (mix du clip) ou n+i (piste jeu seul).
         int EntreeAudio(int i) => audioLol is null ? i : n + i;
 
+        // Rendu « zoom réduit » : carré central 1080×1080 (~56 % de la largeur — le
+        // champion sort rarement du cadre en caméra libre) affiché pleine largeur,
+        // sur un fond du même gameplay flouté qui remplit le 9:16.
         // fps=60 + settb : normalise les entrées à cadence irrégulière (capture VFR)
         // avant le concat, sinon les timestamps se cassent et la vidéo saccade.
         var filtres = string.Join("", plans.Select((p, i) =>
             string.Create(inv,
-                $"[{i}:v]crop=608:1080:656:0,scale=1080:1920,fps=60,setsar=1,settb=AVTB[v{i}];" +
+                $"[{i}:v]fps=60,setsar=1,split=2[bg{i}][fg{i}];" +
+                $"[bg{i}]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=luma_radius=25:luma_power=2[b{i}];" +
+                $"[fg{i}]crop=1080:1080:420:0[f{i}];" +
+                $"[b{i}][f{i}]overlay=0:420,settb=AVTB[v{i}];" +
                 $"[{EntreeAudio(i)}:a]aresample=48000:async=1,afade=t=in:d={FonduAudioSec:F1},afade=t=out:st={Math.Max(0, p.DureeSec - FonduAudioSec):F3}:d={FonduAudioSec:F1}[a{i}];")));
         var concat = string.Join("", plans.Select((_, i) => $"[v{i}][a{i}]")) +
                      $"concat=n={n}:v=1:a=1[v][a]";
