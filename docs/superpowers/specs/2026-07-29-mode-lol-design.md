@@ -51,10 +51,12 @@ TikTok mobile (son tendance + description + publier).
   interdit dans le condensé (copyright + voix privées). Micro exclu aussi.
   **Les clips Alt+F10 personnels gardent le mix complet actuel** (système +
   micro) — deux pistes encodées en parallèle pendant une game LoL.
-- **Upload : API officielle TikTok (Content Posting API), mode brouillon/inbox.**
-  App développeur personnelle à créer (one-shot, compte TikTok de
-  l'utilisateur). Échec d'upload → vidéo conservée dans un dossier local
-  d'attente + notification. Jamais d'automatisation navigateur.
+- **Livraison : manuelle, par dossiers (décision révisée le 29/07/2026).**
+  L'API TikTok (Content Posting) a été abandonnée par l'utilisateur — la
+  bureaucratie de l'app développeur ne valait pas le gain. Chaque condensé est
+  copié dans `Vidéos\Replayo\TikTok en attente\` et, si OneDrive est présent,
+  dans `OneDrive\Replayo TikTok\` (synchro iPhone → app OneDrive → Photos →
+  upload TikTok depuis l'app). Jamais d'automatisation navigateur.
 
 ## Architecture
 

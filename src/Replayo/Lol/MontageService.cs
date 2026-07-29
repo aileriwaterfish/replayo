@@ -109,12 +109,22 @@ public static class MontageService
         await proc.WaitForExitAsync();
         if (proc.ExitCode != 0) { Console.Error.WriteLine($"[montage] ffmpeg : {erreurs}"); return 2; }
 
-        // Copie visible pour l'utilisateur (et future file d'attente d'upload TikTok).
+        // Livraison manuelle (décision du 29/07 : pas d'API TikTok) : copie dans
+        // Vidéos\Replayo\TikTok en attente, et dans OneDrive s'il existe pour que
+        // le condensé arrive tout seul sur l'iPhone (app OneDrive → Photos → TikTok).
+        var nom = $"Replayo_LoL_{manifeste.Date:yyyy-MM-dd_HH\\hmm}.mp4";
         var attente = Path.Combine(AppPaths.DossierSortieDefaut, "TikTok en attente");
         Directory.CreateDirectory(attente);
-        var cible = Path.Combine(attente, $"Replayo_LoL_{manifeste.Date:yyyy-MM-dd_HH\\hmm}.mp4");
-        File.Copy(sortie, cible, overwrite: true);
-        Console.WriteLine($"[montage] condensé prêt : {cible}");
+        File.Copy(sortie, Path.Combine(attente, nom), overwrite: true);
+
+        if (Environment.GetEnvironmentVariable("OneDrive") is { Length: > 0 } oneDrive && Directory.Exists(oneDrive))
+        {
+            var dossierTel = Path.Combine(oneDrive, "Replayo TikTok");
+            Directory.CreateDirectory(dossierTel);
+            File.Copy(sortie, Path.Combine(dossierTel, nom), overwrite: true);
+        }
+
+        Console.WriteLine($"[montage] condensé prêt : {Path.Combine(attente, nom)}");
         return 0;
     }
 }
