@@ -11,10 +11,12 @@ namespace Replayo.Lol;
 /// Sert uniquement à connaître la file de la game en cours (queueId 420 = solo/duo).
 public static partial class LcuClient
 {
-    [GeneratedRegex(@"(?:^|\s)--app-port=(\d+)")]
+    // Riot met chaque argument entre guillemets : `"--app-port=64852"` — l'ancre
+    // accepte donc début, espace OU guillemet (jamais un simple espace seul).
+    [GeneratedRegex(@"(?:^|[\s""])--app-port=(\d+)")]
     private static partial Regex RegexPort();
 
-    [GeneratedRegex(@"(?:^|\s)--remoting-auth-token=([\w-]+)")]
+    [GeneratedRegex(@"(?:^|[\s""])--remoting-auth-token=([\w-]+)")]
     private static partial Regex RegexToken();
 
     public static (int Port, string Token)? ParserLigneCommande(string? cmd)

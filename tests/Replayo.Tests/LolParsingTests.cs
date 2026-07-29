@@ -70,6 +70,18 @@ public class LolParsingTests
     }
 
     [Fact]
+    public void ParserLigneCommande_ArgumentsEntreGuillemets_FormeReelleRiot()
+    {
+        // Forme observée sur le vrai client (29/07/2026) : chaque argument est quoté.
+        var cmd = "\"C:\\Riot Games\\League of Legends\\LeagueClientUx.exe\" " +
+                  "\"--riotclient-app-port=51234\" \"--app-port=64852\" \"--remoting-auth-token=k9Zx-abc_DEF\"";
+        var res = LcuClient.ParserLigneCommande(cmd);
+        Assert.NotNull(res);
+        Assert.Equal(64852, res.Value.Port);
+        Assert.Equal("k9Zx-abc_DEF", res.Value.Token);
+    }
+
+    [Fact]
     public void ParserLigneCommande_Incomplete_Null()
         => Assert.Null(LcuClient.ParserLigneCommande("LeagueClientUx.exe --app-port=1234"));
 }
