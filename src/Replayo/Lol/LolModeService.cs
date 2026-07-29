@@ -15,7 +15,7 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
     public const int DureeCibleMinSec = 60;
     public const int DureeCibleMaxSec = 240; // l'utilisateur préfère du contexte à la brièveté
     public static readonly TimeSpan Fusion = TimeSpan.FromSeconds(12);
-    public static readonly TimeSpan Avant = TimeSpan.FromSeconds(8);
+    public static readonly TimeSpan Avant = TimeSpan.FromSeconds(5);
     public static readonly TimeSpan Apres = TimeSpan.FromSeconds(5);
     public static readonly TimeSpan ResultatAvant = TimeSpan.FromSeconds(6);
     public static readonly TimeSpan ResultatApres = TimeSpan.FromSeconds(6);
