@@ -16,6 +16,7 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
     public const int DureeCibleMaxSec = 240; // l'utilisateur préfère du contexte à la brièveté
     public static readonly TimeSpan Fusion = TimeSpan.FromSeconds(18); // escarmouches d'un seul tenant (style IrelKing)
     public static readonly TimeSpan FusionContexte = TimeSpan.FromSeconds(8); // morts et kills alliés : rattachés au play seulement de près
+    public static readonly TimeSpan ReculCalmeMax = TimeSpan.FromSeconds(15); // recul max pour ouvrir hors combat
     public static readonly TimeSpan Avant = TimeSpan.FromSeconds(5);
     public static readonly TimeSpan Apres = TimeSpan.FromSeconds(3);
     public static readonly TimeSpan AvantMajeur = TimeSpan.FromSeconds(10); // gros play : montrer la rotation/l'engagement
@@ -40,6 +41,7 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
     private TimeSpan? _horlogeCloture;
     private DateTime? _clotureDepuis;
     private readonly List<(TimeSpan T, int Score)> _retenus = new();
+    private readonly List<(TimeSpan T, double Pv)> _pv = new(); // PV échantillonnés (détection « déjà en combat »)
     private readonly HashSet<int> _idsVus = new();
     private readonly HashSet<TimeSpan> _clippees = new();
     private readonly List<SequenceManifeste> _manifeste = new();
@@ -96,7 +98,7 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
         // Entrée en game : état neuf, buffer étendu, dossier de la game.
         _live = new LiveClientClient();
         _moi = null; _victoire = false; _tFinDeGame = null; _horlogeCloture = null; _clotureDepuis = null; _numSeq = 0;
-        _retenus.Clear(); _idsVus.Clear(); _clippees.Clear(); _manifeste.Clear();
+        _retenus.Clear(); _idsVus.Clear(); _clippees.Clear(); _manifeste.Clear(); _pv.Clear();
         _dossier = Path.Combine(AppPaths.DossierLol, $"{DateTime.Now:yyyy-MM-dd_HH\\hmm\\mss}");
         Directory.CreateDirectory(_dossier);
         recorder.FenetreBuffer(FenetreLolSecondes);
@@ -118,6 +120,8 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
         var gameTime = await _live!.GameTimeAsync();
         var horloge = recorder.HorlogeCapture;
         if (gameTime is null || horloge is null) return;
+
+        if (await _live.PvAsync() is { } pv) _pv.Add((horloge.Value, pv));
 
         foreach (var e in await _live.EvenementsAsync())
         {
@@ -209,7 +213,30 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
     }
 
     private List<SequenceLol> Sequences()
-        => ConstructeurSequences.Construire(_retenus, Fusion, Avant, Apres, AvantMajeur, SeuilMajeur, FusionContexte);
+        => ConstructeurSequences.Construire(_retenus, Fusion, Avant, Apres, AvantMajeur, SeuilMajeur, FusionContexte)
+            .Select(s => s with { Debut = DebutCalme(s.Debut, _pv) })
+            .ToList();
+
+    /// Recule l'ouverture d'une séquence si le joueur était déjà en combat à ce
+    /// moment (PV en baisse) : cherche le dernier instant calme (PV stables sur
+    /// ~4 s), au plus ReculCalmeMax avant l'ouverture prévue. Une séquence ne
+    /// doit jamais s'ouvrir au milieu d'un fight (l'enchaînement devient indigeste).
+    internal static TimeSpan DebutCalme(TimeSpan debutPrevu, IReadOnlyList<(TimeSpan T, double Pv)> pv)
+    {
+        bool CalmeA(TimeSpan t)
+        {
+            var fenetre = pv.Where(e => e.T >= t - TimeSpan.FromSeconds(4) && e.T <= t).ToList();
+            for (int i = 1; i < fenetre.Count; i++)
+                if (fenetre[i].Pv < fenetre[i - 1].Pv - 10) return false; // baisse de PV = combat
+            return true; // stable, ou pas assez d'échantillons pour conclure
+        }
+
+        var t = debutPrevu;
+        var limite = debutPrevu - ReculCalmeMax;
+        while (t > limite && !CalmeA(t)) t -= TimeSpan.FromSeconds(2);
+        if (t < limite) t = limite;
+        return t < TimeSpan.Zero ? TimeSpan.Zero : t;
+    }
 
     private async Task ClipperAsync(List<SequenceLol> aClipper)
     {

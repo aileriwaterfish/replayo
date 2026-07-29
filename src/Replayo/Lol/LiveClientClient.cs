@@ -23,6 +23,7 @@ public sealed class LiveClientClient : IDisposable
     public async Task<string?> NomJoueurAsync() => ParserNomJoueur(await LireAsync("activeplayername"));
     public async Task<double?> GameTimeAsync() => ParserGameTime(await LireAsync("gamestats"));
     public async Task<List<EvenementLol>> EvenementsAsync() => ParserEvenements(await LireAsync("eventdata"));
+    public async Task<double?> PvAsync() => ParserPv(await LireAsync("activeplayer"));
 
     private async Task<string> LireAsync(string route)
     {
@@ -33,6 +34,16 @@ public sealed class LiveClientClient : IDisposable
     public static string? ParserNomJoueur(string json)
     {
         try { return JsonDocument.Parse(json).RootElement.GetString(); }
+        catch { return null; }
+    }
+
+    public static double? ParserPv(string json)
+    {
+        try
+        {
+            return JsonDocument.Parse(json).RootElement
+                .GetProperty("championStats").GetProperty("currentHealth").GetDouble();
+        }
         catch { return null; }
     }
 
