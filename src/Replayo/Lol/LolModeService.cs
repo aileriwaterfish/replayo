@@ -13,10 +13,12 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
     public const int QueueSoloDuo = 420;
     public const int SeuilMinSec = 45;
     public const int DureeCibleMinSec = 60;
-    public const int DureeCibleMaxSec = 150;
+    public const int DureeCibleMaxSec = 240; // l'utilisateur préfère du contexte à la brièveté
     public static readonly TimeSpan Fusion = TimeSpan.FromSeconds(12);
-    public static readonly TimeSpan Avant = TimeSpan.FromSeconds(6);
-    public static readonly TimeSpan Apres = TimeSpan.FromSeconds(4);
+    public static readonly TimeSpan Avant = TimeSpan.FromSeconds(10);
+    public static readonly TimeSpan Apres = TimeSpan.FromSeconds(7);
+    public static readonly TimeSpan ResultatAvant = TimeSpan.FromSeconds(6);
+    public static readonly TimeSpan ResultatApres = TimeSpan.FromSeconds(6);
     private const string ProcessusJeu = "League of Legends";
 
     private enum Etat { Idle, EnGame, Cloture, AttenteFinProcessus }
@@ -31,6 +33,7 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
     private string? _moi;
     private string _dossier = "";
     private bool _victoire;
+    private TimeSpan? _tFinDeGame; // horloge de capture du GameEnd (clip du résultat)
     private TimeSpan? _horlogeCloture;
     private DateTime? _clotureDepuis;
     private readonly List<(TimeSpan T, int Score)> _retenus = new();
@@ -89,7 +92,7 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
 
         // Entrée en game : état neuf, buffer étendu, dossier de la game.
         _live = new LiveClientClient();
-        _moi = null; _victoire = false; _horlogeCloture = null; _clotureDepuis = null; _numSeq = 0;
+        _moi = null; _victoire = false; _tFinDeGame = null; _horlogeCloture = null; _clotureDepuis = null; _numSeq = 0;
         _retenus.Clear(); _idsVus.Clear(); _clippees.Clear(); _manifeste.Clear();
         _dossier = Path.Combine(AppPaths.DossierLol, $"{DateTime.Now:yyyy-MM-dd_HH\\hmm\\mss}");
         Directory.CreateDirectory(_dossier);
@@ -126,7 +129,13 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
                 if (t < TimeSpan.Zero) t = TimeSpan.Zero;
                 _retenus.Add((t, score));
             }
-            if (e.Type == "GameEnd") { _victoire = e.Resultat == "Win"; _etat = Etat.Cloture; }
+            if (e.Type == "GameEnd")
+            {
+                _victoire = e.Resultat == "Win";
+                var tFin = horloge.Value - TimeSpan.FromSeconds(gameTime.Value - e.TempsJeuSec);
+                _tFinDeGame = tFin < TimeSpan.Zero ? TimeSpan.Zero : tFin;
+                _etat = Etat.Cloture;
+            }
         }
 
         await ClipperAsync(SequencesClippables(Sequences(), horloge.Value, _clippees, Fusion));
@@ -137,6 +146,7 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
         var horloge = recorder.HorlogeCapture;
         var sequences = Sequences();
         var derniereFin = sequences.Count > 0 ? sequences.Max(s => s.Fin) : TimeSpan.Zero;
+        if (_tFinDeGame is { } tf && tf + ResultatApres > derniereFin) derniereFin = tf + ResultatApres;
 
         if (horloge is not null)
         {
@@ -148,10 +158,24 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
             if (horloge < derniereFin && horloge - _horlogeCloture < TimeSpan.FromSeconds(15)
                 && DateTime.UtcNow - _clotureDepuis < TimeSpan.FromSeconds(25)) return;
             await ClipperAsync(sequences.Where(s => !_clippees.Contains(s.Debut)).ToList());
+
+            // Clip du résultat (victoire OU défaite) : il clôt toujours la vidéo.
+            if (_tFinDeGame is { } tFin)
+            {
+                var fichier = $"seq_{++_numSeq:D2}.mp4";
+                var clip = await recorder.ClipperIntervalleAsync(
+                    tFin - ResultatAvant, tFin + ResultatApres, Path.Combine(_dossier, fichier));
+                if (clip is null) _numSeq--;
+                else _manifeste.Add(new(fichier, 0, (tFin - ResultatAvant).TotalSeconds,
+                    (tFin + ResultatApres).TotalSeconds, clip.Value.DebutReel.TotalSeconds,
+                    [tFin.TotalSeconds], EstResultat: true));
+            }
         }
 
         _audio?.Terminer();
-        var totalSec = _manifeste.Sum(s => s.FinSec - s.DebutSec);
+        // Le clip du résultat ne compte pas dans le seuil : une game sans temps forts
+        // reste sautée même avec sa fin de game.
+        var totalSec = _manifeste.Where(s => !s.EstResultat).Sum(s => s.FinSec - s.DebutSec);
         var retenue = totalSec >= SeuilMinSec;
         new ManifesteLol(2, DateTime.Now, QueueSoloDuo, _victoire, retenue,
             DureeCibleMinSec, DureeCibleMaxSec, SeuilMinSec, new(_manifeste),

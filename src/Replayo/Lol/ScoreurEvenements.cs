@@ -24,7 +24,8 @@ public static class ScoreurEvenements
         "FirstBlood" when MemeJoueur(e.Beneficiaire, moi) => 15,
         "DragonKill" when MemeJoueur(e.Tueur, moi) && e.Vole => 70,
         "BaronKill" when MemeJoueur(e.Tueur, moi) && e.Vole => 80,
-        "GameEnd" when e.Resultat == "Win" => 30,
+        // GameEnd n'est pas scoré : le résultat (victoire OU défaite) fait l'objet
+        // d'un clip dédié en clôture, qui termine toujours la vidéo.
         _ => NonRetenu,
     };
 }

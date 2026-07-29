@@ -19,14 +19,19 @@ public static class MontageService
 
     /// Ordre chronologique conservé ; retire la séquence au score le plus faible
     /// (à égalité : la plus longue) tant que la durée totale dépasse maxSec.
+    /// Le clip du résultat de la game n'est JAMAIS éjecté et reste en clôture
+    /// (son temps est déduit du budget des autres séquences).
     public static List<SequenceManifeste> Selectionner(List<SequenceManifeste> seqs, int maxSec)
     {
-        var retenues = seqs.OrderBy(s => s.DebutSec).ToList();
-        while (retenues.Count > 1 && retenues.Sum(s => s.FinSec - s.DebutSec) > maxSec)
+        var resultat = seqs.Where(s => s.EstResultat).OrderBy(s => s.DebutSec).ToList();
+        var retenues = seqs.Where(s => !s.EstResultat).OrderBy(s => s.DebutSec).ToList();
+        var budget = maxSec - resultat.Sum(s => s.FinSec - s.DebutSec);
+        while (retenues.Count > 1 && retenues.Sum(s => s.FinSec - s.DebutSec) > budget)
         {
             var victime = retenues.OrderBy(s => s.Score).ThenByDescending(s => s.FinSec - s.DebutSec).First();
             retenues.Remove(victime);
         }
+        retenues.AddRange(resultat);
         return retenues;
     }
 
@@ -40,13 +45,15 @@ public static class MontageService
         return new(meilleure.Fichier, depart - meilleure.FichierDebutSec, Math.Max(0.5, finTeaser - depart), depart);
     }
 
-    /// Cold open (si ≥ 2 séquences) puis toutes les séquences en ordre chronologique.
+    /// Cold open (si ≥ 2 séquences) puis toutes les séquences en ordre chronologique
+    /// (le résultat de la game, s'il existe, arrive naturellement en dernier).
     public static List<PlanDeCoupe> Timeline(ManifesteLol m)
     {
         var retenues = Selectionner(m.Sequences, m.DureeCibleMaxSec);
         var plans = new List<PlanDeCoupe>();
-        if (retenues.Count >= 2)
-            plans.Add(ColdOpen(retenues.OrderByDescending(s => s.Score).First()));
+        var teasables = retenues.Where(s => !s.EstResultat).ToList();
+        if (retenues.Count >= 2 && teasables.Count > 0)
+            plans.Add(ColdOpen(teasables.OrderByDescending(s => s.Score).First()));
         plans.AddRange(retenues.Select(s =>
             new PlanDeCoupe(s.Fichier, s.DebutSec - s.FichierDebutSec, s.FinSec - s.DebutSec, s.DebutSec)));
         return plans;

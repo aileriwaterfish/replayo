@@ -53,11 +53,9 @@ public class ScoreurEvenementsTests
     public void BaronVoleParMoi_80()
         => Assert.Equal(80, ScoreurEvenements.Score(new(9, "BaronKill", 100, Tueur: Moi, Vole: true), Moi));
 
-    [Fact]
-    public void Victoire_30()
-        => Assert.Equal(30, ScoreurEvenements.Score(new(10, "GameEnd", 100, Resultat: "Win"), Moi));
-
-    [Fact]
-    public void Defaite_Ignoree()
-        => Assert.Equal(ScoreurEvenements.NonRetenu, ScoreurEvenements.Score(new(11, "GameEnd", 100, Resultat: "Lose"), Moi));
+    [Theory]
+    [InlineData("Win")]
+    [InlineData("Lose")]
+    public void GameEnd_JamaisScore_LeResultatEstUnClipDedie(string resultat)
+        => Assert.Equal(ScoreurEvenements.NonRetenu, ScoreurEvenements.Score(new(10, "GameEnd", 100, Resultat: resultat), Moi));
 }

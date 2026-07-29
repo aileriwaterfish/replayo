@@ -6,6 +6,36 @@ public class MontageServiceTests
     private static SequenceManifeste Seq(string fichier, int score, double debut, double fin, double fichierDebut, params double[] evts)
         => new(fichier, score, debut, fin, fichierDebut, evts);
 
+    private static SequenceManifeste Resultat(double debut, double fin)
+        => new("seq_fin.mp4", 0, debut, fin, debut - 3, [debut + 6], EstResultat: true);
+
+    [Fact]
+    public void Selectionner_LeResultatNestJamaisEjecte_EtResteEnDernier()
+    {
+        var seqs = new List<SequenceManifeste>
+        {
+            Seq("seq_01.mp4", 40, 100, 220, 95, 130),  // 120 s
+            Seq("seq_02.mp4", 25, 300, 420, 295, 330), // 120 s — score le plus faible
+            Resultat(2000, 2012),                       // 12 s, score 0
+        };
+        var retenues = MontageService.Selectionner(seqs, maxSec: 150);
+        // budget hors résultat = 138 s → une seule séquence normale tient
+        Assert.Equal(["seq_01.mp4", "seq_fin.mp4"], retenues.Select(s => s.Fichier));
+        Assert.True(retenues[^1].EstResultat);
+    }
+
+    [Fact]
+    public void Timeline_ColdOpenJamaisSurLeResultat()
+    {
+        var m = Manifeste(
+            Seq("seq_01.mp4", 25, 100, 130, 95, 110),
+            Resultat(2000, 2012));
+        var plans = MontageService.Timeline(m);
+        Assert.Equal(3, plans.Count);
+        Assert.Equal("seq_01.mp4", plans[0].Fichier);   // teaser sur le play, pas la fin de game
+        Assert.Equal("seq_fin.mp4", plans[^1].Fichier); // le résultat clôt la vidéo
+    }
+
     private static ManifesteLol Manifeste(params SequenceManifeste[] seqs)
         => new(1, new DateTime(2026, 7, 29), 420, Victoire: false, Retenue: true, 60, 150, 45, [.. seqs]);
 

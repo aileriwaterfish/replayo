@@ -33,18 +33,25 @@ TikTok mobile (son tendance + description + publier).
     (Shutdowns : souhaités mais l'API Live Client ne les expose pas — hors
     périmètre tant que Riot ne le fournit pas.)
 - **Séquences** : événements distants de **< 12 s** fusionnés ; fenêtre de
-  **6 s avant** le premier événement à **4 s après** le dernier ; score de la
+  **10 s avant** le premier événement à **7 s après** le dernier (élargie le
+  29/07 au soir : l'utilisateur veut plus de contexte par play) ; score de la
   séquence = somme des scores de ses événements.
+- **Le résultat de la game clôt TOUJOURS la vidéo** (révision du 29/07 au
+  soir) : clip dédié de la fin de game (~6 s avant / 6 s après le GameEnd),
+  victoire **ou défaite**, jamais éjecté par le tri (son temps est déduit du
+  budget des autres séquences), jamais utilisé comme cold open, et exclu du
+  seuil des 45 s.
 - **Montage** : cold open de 3-4 s sur la meilleure séquence **coupée avant sa
   résolution**, puis les séquences dans l'ordre chronologique. Cuts francs,
   fondu audio ~200 ms entre séquences, **aucun texte incrusté**, aucune
   musique (le son tendance est ajouté par l'utilisateur dans TikTok). Crop
   vertical **central** (1080×1920 depuis le centre du 1920×1080). Si victoire :
   le moment de victoire clôt la vidéo.
-- **Durée** : 1 min à 2 min 30. Game trop riche → tri par score jusqu'à
-  2 min 30 (remises en ordre chronologique). Game trop pauvre (< **45 s** de
-  séquences cumulées) → **sautée** : pas de vidéo, notification discrète, clips
-  bruts conservés en local.
+- **Durée** : 1 min à **4 min** (portée de 2:30 à 4:00 le 29/07 au soir —
+  l'utilisateur préfère le contexte à la brièveté). Game trop riche → tri par
+  score jusqu'à 4 min (remises en ordre chronologique). Game trop pauvre
+  (< **45 s** de séquences cumulées, résultat non compté) → **sautée** : pas de
+  vidéo, notification discrète, clips bruts conservés en local.
 - **Audio du condensé : le son du jeu uniquement** — piste dédiée capturant le
   **processus LoL seul** (process loopback WASAPI). L'utilisateur écoute
   Spotify et est en vocal Discord en jouant : le mix système intégral est donc
