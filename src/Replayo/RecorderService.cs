@@ -16,6 +16,7 @@ public sealed class RecorderService : IDisposable
 
     private readonly List<Pipeline> _pipelines = new();
     private AudioEngine? _audio;
+    private AudioMixRecorder? _audioMix;
     private CancellationTokenSource? _cts;
     private System.Threading.Timer? _surveillanceDisque;
     private ReplayoConfig _cfg = new();
@@ -38,6 +39,10 @@ public sealed class RecorderService : IDisposable
         _cts = new CancellationTokenSource();
         _audio = AudioEngine.CreerSiActive(cfg);
         _audio?.Demarrer();
+        // Mix audio encodé en continu à côté du buffer (les segments sont vidéo seule) ;
+        // l'audio est remis au moment du clip, découpé par horloge de capture.
+        if (_audio is not null)
+            _audioMix = AudioMixRecorder.Demarrer(_audio, Path.Combine(AppPaths.DossierBuffer, "audio_mix.aac"));
 
         foreach (var (ecran, i) in sources.Select((e, i) => (e, i)))
         {
@@ -46,7 +51,7 @@ public sealed class RecorderService : IDisposable
             var capture = new CaptureEngine(ecran);
             capture.CaptureInterrompue += () => Notification?.Invoke($"Écran {ecran.Index + 1} interrompu — capture arrêtée pour cet écran.");
             capture.Demarrer();
-            var enc = new SegmentEncoder(capture.Frames, i == 0 ? _audio : null, ring, preset, capture.Taille);
+            var enc = new SegmentEncoder(capture.Frames, ring, preset, capture.Taille);
             _ = enc.BoucleEncodageAsync(_cts.Token);
             _pipelines.Add(new(capture, enc, ring, sources.Count > 1 ? $"ecran{ecran.Index + 1}" : null));
         }
@@ -82,6 +87,7 @@ public sealed class RecorderService : IDisposable
         _cts?.Cancel();
         foreach (var p in _pipelines) p.Capture.Arreter();
         _pipelines.Clear();
+        _audioMix?.Dispose(); _audioMix = null;
         _audio?.Dispose(); _audio = null;
     }
 
@@ -93,6 +99,9 @@ public sealed class RecorderService : IDisposable
     /// Fenêtre de rétention de tous les anneaux (mode LoL : étendue à 120 s en game).
     public void FenetreBuffer(int secondes) { foreach (var p in _pipelines) p.Ring.DureeMaxSecondes = secondes; }
 
+    /// Chemin du mix audio continu de la session (null si audio désactivé/indisponible).
+    public string? CheminAudioMix => _audioMix?.Chemin;
+
     /// Clip d'un intervalle de l'horloge de capture, sans ré-encodage, vers un chemin
     /// imposé. Rend aussi le début réel du fichier (frontière de segment ≤ debut).
     public async Task<(string Chemin, TimeSpan DebutReel)?> ClipperIntervalleAsync(TimeSpan debut, TimeSpan fin, string sortie)
@@ -100,7 +109,8 @@ public sealed class RecorderService : IDisposable
         if (!EnCapture || _pipelines.Count == 0) return null;
         var (segments, debutPremier) = _pipelines[0].Ring.IntervalleAvecDebut(debut, fin);
         if (segments.Count == 0) return null;
-        return await ClipService.AssemblerAsync(segments, sortie) ? (sortie, debutPremier) : null;
+        return await ClipService.AssemblerAsync(segments, sortie, CheminAudioMix, debutPremier.TotalSeconds)
+            ? (sortie, debutPremier) : null;
     }
 
     public async Task<List<string>> ClipperAsync()
@@ -108,9 +118,11 @@ public sealed class RecorderService : IDisposable
         var resultats = new List<string>();
         if (!EnCapture) return resultats;
         var clips = new ClipService(_cfg);
-        foreach (var p in _pipelines)
+        foreach (var (p, i) in _pipelines.Select((p, i) => (p, i)))
         {
-            var chemin = await clips.CreerClipAsync(p.Ring, p.Enc.HorlogeCapture, p.Suffixe);
+            // L'audio (mix) n'accompagne que l'écran principal, comme avant le découplage.
+            var chemin = await clips.CreerClipAsync(p.Ring, p.Enc.HorlogeCapture, p.Suffixe,
+                i == 0 ? CheminAudioMix : null);
             if (chemin is not null) resultats.Add(chemin);
         }
         return resultats;
