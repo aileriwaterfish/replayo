@@ -32,10 +32,17 @@ TikTok mobile (son tendance + description + publier).
   - Exclus : assists, tours, dragons/barons non volés, morts seules.
     (Shutdowns : souhaités mais l'API Live Client ne les expose pas — hors
     périmètre tant que Riot ne le fournit pas.)
-- **Séquences** : événements distants de **< 12 s** fusionnés ; fenêtre de
-  **5 s avant** le premier événement à **5 s après** le dernier (réglage final
-  de l'utilisateur le 29/07 au soir, après itérations 6/4 → 10/7 → 8/5) ;
-  score de la séquence = somme des scores de ses événements.
+- **Séquences** : événements distants de **< 18 s** fusionnés (élargi de 12 à
+  18 s après analyse d'une vidéo IrelKing : les escarmouches restent d'un seul
+  tenant) ; fenêtre de **5 s avant / 5 s après** (réglage utilisateur, après
+  itérations 6/4 → 10/7 → 8/5 → 5/5), **sauf gros play (score ≥ 50) : 10 s
+  avant** pour montrer la rotation et l'engagement (mise en scène
+  proportionnelle, style IrelKing) ; score = somme des événements.
+- **Style de montage validé sur référence** (vidéo IrelKing analysée le 29/07 :
+  4 cuts en 25 min, aucun zoom/slow-mo/transition, fights toujours entiers,
+  fin de game en clôture) : cuts secs, zéro artifice, continuité des fights.
+  Ses sous-titres de commentaire et sa capture spectateur/replay ne sont PAS
+  repris (exclus par l'utilisateur : pas de texte, POV brute).
 - **Le résultat de la game clôt TOUJOURS la vidéo** (révision du 29/07 au
   soir) : clip dédié de la fin de game (~6 s avant / 6 s après le GameEnd),
   victoire **ou défaite**, jamais éjecté par le tri (son temps est déduit du

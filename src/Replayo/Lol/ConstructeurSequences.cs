@@ -5,10 +5,13 @@ public sealed record SequenceLol(TimeSpan Debut, TimeSpan Fin, int Score, IReadO
 
 /// Fusionne les événements proches en séquences (spec : < fusion entre événements,
 /// fenêtre avant/après, séquence à 0 pt jamais émise — la mort isolée disparaît).
+/// Mise en scène proportionnelle (style IrelKing) : un gros play (score ≥ seuilMajeur)
+/// s'ouvre avec avantMajeur de contexte — on voit la rotation et l'engagement.
 public static class ConstructeurSequences
 {
     public static List<SequenceLol> Construire(
-        IEnumerable<(TimeSpan T, int Score)> evenements, TimeSpan fusion, TimeSpan avant, TimeSpan apres)
+        IEnumerable<(TimeSpan T, int Score)> evenements, TimeSpan fusion, TimeSpan avant, TimeSpan apres,
+        TimeSpan? avantMajeur = null, int seuilMajeur = 50)
     {
         var tri = evenements.OrderBy(e => e.T).ToList();
         var sequences = new List<SequenceLol>();
@@ -20,7 +23,8 @@ public static class ConstructeurSequences
             var score = groupe.Sum(g => g.Score);
             if (score > 0)
             {
-                var debut = groupe[0].T - avant;
+                var ouverture = score >= seuilMajeur && avantMajeur is { } aM ? aM : avant;
+                var debut = groupe[0].T - ouverture;
                 if (debut < TimeSpan.Zero) debut = TimeSpan.Zero;
                 sequences.Add(new(debut, groupe[^1].T + apres, score, groupe.Select(g => g.T).ToList()));
             }

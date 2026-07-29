@@ -51,6 +51,25 @@ public class ConstructeurSequencesTests
     }
 
     [Fact]
+    public void GrosPlay_OuvertureElargie()
+    {
+        // triple kill (25+25+25+35 = 110 ≥ 50) → l'avant passe à 10 s (rotation visible)
+        var seqs = ConstructeurSequences.Construire(
+            [(TimeSpan.FromSeconds(100), 25), (TimeSpan.FromSeconds(104), 25), (TimeSpan.FromSeconds(108), 60)],
+            Fusion, Avant, Apres, avantMajeur: TimeSpan.FromSeconds(10), seuilMajeur: 50);
+        Assert.Equal(TimeSpan.FromSeconds(90), Assert.Single(seqs).Debut); // 100 − 10
+    }
+
+    [Fact]
+    public void KillIsole_OuvertureNormale_MemeAvecAvantMajeur()
+    {
+        var seqs = ConstructeurSequences.Construire(
+            [(TimeSpan.FromSeconds(100), 25)],
+            Fusion, Avant, Apres, avantMajeur: TimeSpan.FromSeconds(10), seuilMajeur: 50);
+        Assert.Equal(TimeSpan.FromSeconds(94), Assert.Single(seqs).Debut); // 100 − 6 (Avant du test)
+    }
+
+    [Fact]
     public void EntreeNonTriee_MemeResultat()
     {
         var desordre = Construire((108, 25), (100, 25));
