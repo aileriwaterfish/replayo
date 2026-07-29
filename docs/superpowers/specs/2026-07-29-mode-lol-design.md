@@ -51,9 +51,13 @@ TikTok mobile (son tendance + description + publier).
 - **Montage** : cold open de 3-4 s sur la meilleure séquence **coupée avant sa
   résolution**, puis les séquences dans l'ordre chronologique. Cuts francs,
   fondu audio ~200 ms entre séquences, **aucun texte incrusté**, aucune
-  musique (le son tendance est ajouté par l'utilisateur dans TikTok). Crop
-  vertical **central** (1080×1920 depuis le centre du 1920×1080). Si victoire :
-  le moment de victoire clôt la vidéo.
+  musique (le son tendance est ajouté par l'utilisateur dans TikTok).
+  **Cadrage « zoom réduit » (validé par l'utilisateur le 29/07 au soir)** :
+  carré central 1080×1080 (~56 % de la largeur — le champion sort rarement du
+  cadre en caméra libre) affiché pleine largeur du 9:16, bandes du même
+  gameplay flouté en haut/bas. Le crop serré 608×1080 (zoom fort) a été
+  comparé et écarté ; le tracking du champion par vision reste une V2
+  possible si besoin.
 - **Durée** : 1 min à **4 min** (portée de 2:30 à 4:00 le 29/07 au soir —
   l'utilisateur préfère le contexte à la brièveté). Game trop riche → tri par
   score jusqu'à 4 min (remises en ordre chronologique). Game trop pauvre
