@@ -43,6 +43,11 @@ TikTok mobile (son tendance + description + publier).
   itérations 6/4 → 10/7 → 8/5 → 5/5 → 5/3), **sauf gros play (score ≥ 50) :
   10 s avant** pour montrer la rotation et l'engagement (mise en scène
   proportionnelle, style IrelKing) ; score = somme des événements.
+  **Ouverture toujours hors combat** (feedback du 30/07 : enchaîner sur une
+  séquence qui démarre en plein fight est indigeste) : les PV du joueur sont
+  échantillonnés toutes les 2 s ; si l'ouverture prévue tombe pendant une
+  baisse de PV, elle recule jusqu'au dernier instant calme (PV stables ~4 s),
+  plafonné à 15 s de recul.
 - **Style de montage validé sur référence** (vidéo IrelKing analysée le 29/07 :
   4 cuts en 25 min, aucun zoom/slow-mo/transition, fights toujours entiers,
   fin de game en clôture) : cuts secs, zéro artifice, continuité des fights.
