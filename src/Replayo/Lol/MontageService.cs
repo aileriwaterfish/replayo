@@ -13,8 +13,6 @@ public sealed record PlanDeCoupe(string Fichier, double DepartSec, double DureeS
 /// Lancé par `Replayo.exe --montage <dossierGame>` — aucun UI, sortie console.
 public static class MontageService
 {
-    private const double TeaserSec = 3.5;
-    private const double MargeResolutionSec = 0.5;
     private const double FonduAudioSec = 0.2;
 
     /// Ordre chronologique conservé ; retire la séquence au score le plus faible
@@ -35,29 +33,12 @@ public static class MontageService
         return retenues;
     }
 
-    /// Teaser : ~3,5 s de la meilleure séquence, coupé ~0,5 s avant son dernier
-    /// événement (la résolution reste à découvrir dans le corps de la vidéo).
-    public static PlanDeCoupe ColdOpen(SequenceManifeste meilleure)
-    {
-        var dernierEvt = meilleure.EvenementsSec.Length > 0 ? meilleure.EvenementsSec.Max() : meilleure.FinSec;
-        var finTeaser = dernierEvt - MargeResolutionSec;
-        var depart = Math.Max(meilleure.FichierDebutSec, finTeaser - TeaserSec);
-        return new(meilleure.Fichier, depart - meilleure.FichierDebutSec, Math.Max(0.5, finTeaser - depart), depart);
-    }
-
-    /// Cold open (si ≥ 2 séquences) puis toutes les séquences en ordre chronologique
-    /// (le résultat de la game, s'il existe, arrive naturellement en dernier).
+    /// Timeline purement chronologique (cold open retiré à la demande de
+    /// l'utilisateur le 30/07) ; le résultat de la game arrive naturellement en dernier.
     public static List<PlanDeCoupe> Timeline(ManifesteLol m)
-    {
-        var retenues = Selectionner(m.Sequences, m.DureeCibleMaxSec);
-        var plans = new List<PlanDeCoupe>();
-        var teasables = retenues.Where(s => !s.EstResultat).ToList();
-        if (retenues.Count >= 2 && teasables.Count > 0)
-            plans.Add(ColdOpen(teasables.OrderByDescending(s => s.Score).First()));
-        plans.AddRange(retenues.Select(s =>
-            new PlanDeCoupe(s.Fichier, s.DebutSec - s.FichierDebutSec, s.FinSec - s.DebutSec, s.DebutSec)));
-        return plans;
-    }
+        => Selectionner(m.Sequences, m.DureeCibleMaxSec)
+            .Select(s => new PlanDeCoupe(s.Fichier, s.DebutSec - s.FichierDebutSec, s.FinSec - s.DebutSec, s.DebutSec))
+            .ToList();
 
     /// Commande ffmpeg complète : -ss/-t par entrée, crop central 9:16 + scale,
     /// fondus audio en entrée/sortie de chaque plan, concat, H.264 + AAC.

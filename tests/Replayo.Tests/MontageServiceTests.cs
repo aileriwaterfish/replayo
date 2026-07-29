@@ -25,14 +25,14 @@ public class MontageServiceTests
     }
 
     [Fact]
-    public void Timeline_ColdOpenJamaisSurLeResultat()
+    public void Timeline_LeResultatClotLaVideo()
     {
         var m = Manifeste(
             Seq("seq_01.mp4", 25, 100, 130, 95, 110),
             Resultat(2000, 2012));
         var plans = MontageService.Timeline(m);
-        Assert.Equal(3, plans.Count);
-        Assert.Equal("seq_01.mp4", plans[0].Fichier);   // teaser sur le play, pas la fin de game
+        Assert.Equal(2, plans.Count);
+        Assert.Equal("seq_01.mp4", plans[0].Fichier);
         Assert.Equal("seq_fin.mp4", plans[^1].Fichier); // le résultat clôt la vidéo
     }
 
@@ -60,46 +60,17 @@ public class MontageServiceTests
     }
 
     [Fact]
-    public void ColdOpen_TeaserAvantLaResolution()
-    {
-        // dernier événement à 108 s ; fichier démarre à 90 s
-        var s = Seq("seq_01.mp4", 65, 94, 112, 90, 100, 108);
-        var plan = MontageService.ColdOpen(s);
-        Assert.Equal("seq_01.mp4", plan.Fichier);
-        Assert.Equal(14.0, plan.DepartSec, 3);  // (108 − 0,5 − 3,5) − 90
-        Assert.Equal(3.5, plan.DureeSec, 3);
-    }
-
-    [Fact]
-    public void ColdOpen_ClampeAuDebutDuFichier()
-    {
-        var s = Seq("seq_01.mp4", 25, 91, 99, 90, 92); // événement 2 s après le début du fichier
-        var plan = MontageService.ColdOpen(s);
-        Assert.Equal(0.0, plan.DepartSec, 3);
-        Assert.True(plan.DureeSec is > 0 and <= 3.5);
-    }
-
-    [Fact]
-    public void Timeline_ColdOpenPuisChrono()
+    public void Timeline_PurementChronologique_SansColdOpen()
     {
         var m = Manifeste(
             Seq("seq_01.mp4", 40, 100, 160, 95, 130),
             Seq("seq_02.mp4", 65, 300, 360, 295, 330));
         var plans = MontageService.Timeline(m);
-        Assert.Equal(3, plans.Count);
-        Assert.Equal("seq_02.mp4", plans[0].Fichier);        // teaser = meilleure séquence
-        Assert.Equal(3.5, plans[0].DureeSec, 3);
-        Assert.Equal("seq_01.mp4", plans[1].Fichier);        // puis chronologique
-        Assert.Equal(5.0, plans[1].DepartSec, 3);            // 100 − 95
-        Assert.Equal(60.0, plans[1].DureeSec, 3);
-        Assert.Equal("seq_02.mp4", plans[2].Fichier);
-    }
-
-    [Fact]
-    public void Timeline_UneSeuleSequence_PasDeTeaser()
-    {
-        var m = Manifeste(Seq("seq_01.mp4", 40, 100, 160, 95, 130));
-        Assert.Single(MontageService.Timeline(m));
+        Assert.Equal(2, plans.Count);                 // aucun teaser ajouté
+        Assert.Equal("seq_01.mp4", plans[0].Fichier); // ordre chronologique strict
+        Assert.Equal(5.0, plans[0].DepartSec, 3);     // 100 − 95
+        Assert.Equal(60.0, plans[0].DureeSec, 3);
+        Assert.Equal("seq_02.mp4", plans[1].Fichier);
     }
 
     [Fact]

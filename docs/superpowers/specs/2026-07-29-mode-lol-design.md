@@ -50,8 +50,9 @@ TikTok mobile (son tendance + description + publier).
   seuil des 45 s. **Repli si GameEnd n'est jamais reçu** (client fermé trop
   vite, vécu sur un surrender le 30/07) : clip des ~11 dernières secondes
   capturées avant la disparition du processus — l'écran de fin y figure.
-- **Montage** : cold open de 3-4 s sur la meilleure séquence **coupée avant sa
-  résolution**, puis les séquences dans l'ordre chronologique. Cuts francs,
+- **Montage** : séquences dans l'ordre **purement chronologique** (le cold
+  open initialement prévu a été retiré à la demande de l'utilisateur le
+  30/07). Cuts francs,
   fondu audio ~200 ms entre séquences, **aucun texte incrusté**, aucune
   musique (le son tendance est ajouté par l'utilisateur dans TikTok).
   **Cadrage « zoom réduit » (validé par l'utilisateur le 29/07 au soir)** :
