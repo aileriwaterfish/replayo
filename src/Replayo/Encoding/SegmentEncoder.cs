@@ -56,7 +56,7 @@ public sealed class SegmentEncoder(FrameQueue frames, AudioEngine? audio, Segmen
 
         mss.SampleRequested += (_, e) =>
         {
-            var deferral = e.Request.GetDeferral();
+            MediaStreamSourceSampleRequestDeferral? deferral = e.Request.GetDeferral();
             try
             {
                 if (e.Request.StreamDescriptor is VideoStreamDescriptor)
@@ -72,16 +72,41 @@ public sealed class SegmentEncoder(FrameQueue frames, AudioEngine? audio, Segmen
                 else if (audio is not null)
                 {
                     if (fini) { e.Request.Sample = null; return; }
-                    var pcm = audio.LirePcmDisponible();
-                    if (pcm.Length == 0) pcm = new byte[9600]; // 50 ms de silence : ne jamais bloquer le mux
-                    var sample = MediaStreamSample.CreateFromBuffer(pcm.AsBuffer(), horlogeAudio);
-                    sample.Duration = TimeSpan.FromSeconds(pcm.Length / (48000.0 * 2 * 2));
-                    horlogeAudio += sample.Duration;
-                    e.Request.Sample = sample;
+                    // Le transcodeur tire l'audio aussi vite qu'il peut (pull) alors que la
+                    // vidéo est cadencée par les vraies frames : sans garde-fou, la piste
+                    // audio enfle de silence fabriqué (15 s d'audio par segment de 10 s) et
+                    // la durée du conteneur devient fausse → gels de 5 s au concat des clips.
+                    // On rythme donc l'audio sur l'horloge vidéo, via le deferral (async,
+                    // sans bloquer le thread de rappel du MediaStreamSource).
+                    var requete = e.Request;
+                    var deferralAudio = deferral;
+                    deferral = null; // complété par la continuation asynchrone
+                    Task.Run(async () =>
+                    {
+                        try
+                        {
+                            TimeSpan Cible() => origineSegment is null ? TimeSpan.Zero : HorlogeCapture - origineSegment.Value;
+                            var avance = TimeSpan.FromMilliseconds(200);
+                            while (!fini && horlogeAudio > Cible() + avance)
+                                await Task.Delay(20, ct);
+
+                            // Ne lire que le retard réel (borné 20 ms – 500 ms).
+                            var manque = Cible() + avance - horlogeAudio;
+                            var octets = (int)Math.Clamp(manque.TotalSeconds * 48000 * 2 * 2, 3840, 96000) / 4 * 4;
+                            var pcm = audio.LirePcmDisponible(octets);
+                            if (pcm.Length == 0) pcm = new byte[3840]; // 20 ms de silence : ne jamais bloquer le mux
+                            var sample = MediaStreamSample.CreateFromBuffer(pcm.AsBuffer(), horlogeAudio);
+                            sample.Duration = TimeSpan.FromSeconds(pcm.Length / (48000.0 * 2 * 2));
+                            horlogeAudio += sample.Duration;
+                            requete.Sample = sample;
+                        }
+                        catch (OperationCanceledException) { requete.Sample = null; }
+                        finally { deferralAudio.Complete(); }
+                    });
                 }
             }
             catch (OperationCanceledException) { e.Request.Sample = null; }
-            finally { deferral.Complete(); }
+            finally { deferral?.Complete(); }
         };
 
         // --- Profil de sortie : H.264 + AAC au débit du préréglage ---
