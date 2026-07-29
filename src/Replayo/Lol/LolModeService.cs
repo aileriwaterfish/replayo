@@ -32,6 +32,7 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
     private string _dossier = "";
     private bool _victoire;
     private TimeSpan? _horlogeCloture;
+    private DateTime? _clotureDepuis;
     private readonly List<(TimeSpan T, int Score)> _retenus = new();
     private readonly HashSet<int> _idsVus = new();
     private readonly HashSet<TimeSpan> _clippees = new();
@@ -88,7 +89,7 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
 
         // Entrée en game : état neuf, buffer étendu, dossier de la game.
         _live = new LiveClientClient();
-        _moi = null; _victoire = false; _horlogeCloture = null; _numSeq = 0;
+        _moi = null; _victoire = false; _horlogeCloture = null; _clotureDepuis = null; _numSeq = 0;
         _retenus.Clear(); _idsVus.Clear(); _clippees.Clear(); _manifeste.Clear();
         _dossier = Path.Combine(AppPaths.DossierLol, $"{DateTime.Now:yyyy-MM-dd_HH\\hmm\\mss}");
         Directory.CreateDirectory(_dossier);
@@ -140,8 +141,12 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
         if (horloge is not null)
         {
             _horlogeCloture ??= horloge;
-            // Laisser la capture couvrir la fin de la dernière séquence (max ~15 s d'attente).
-            if (horloge < derniereFin && horloge - _horlogeCloture < TimeSpan.FromSeconds(15)) return;
+            _clotureDepuis ??= DateTime.UtcNow;
+            // Laisser la capture couvrir la fin de la dernière séquence — borne aussi
+            // en temps MURAL : si l'horloge de capture est figée (encodeur en panne),
+            // on finalise quand même au lieu de boucler sans fin.
+            if (horloge < derniereFin && horloge - _horlogeCloture < TimeSpan.FromSeconds(15)
+                && DateTime.UtcNow - _clotureDepuis < TimeSpan.FromSeconds(25)) return;
             await ClipperAsync(sequences.Where(s => !_clippees.Contains(s.Debut)).ToList());
         }
 

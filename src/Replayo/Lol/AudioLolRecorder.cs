@@ -32,19 +32,28 @@ public sealed class AudioLolRecorder : IDisposable
             { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true };
             var ffmpeg = Process.Start(psi)!;
 
-            var capture = new ProcessLoopbackCapture(pidJeu);
-            var flux = ffmpeg.StandardInput.BaseStream;
-            capture.EchantillonsRecus += (octets, n) =>
+            try
             {
-                try { flux.Write(octets, 0, n); }
-                catch { /* ffmpeg parti : la capture s'arrêtera au Dispose */ }
-            };
-            capture.Demarrer();
-
-            return new AudioLolRecorder(capture, ffmpeg, horloge()?.TotalSeconds ?? 0);
+                var capture = new ProcessLoopbackCapture(pidJeu);
+                var flux = ffmpeg.StandardInput.BaseStream;
+                capture.EchantillonsRecus += (octets, n) =>
+                {
+                    try { flux.Write(octets, 0, n); }
+                    catch { /* ffmpeg parti : la capture s'arrêtera au Dispose */ }
+                };
+                capture.Demarrer();
+                return new AudioLolRecorder(capture, ffmpeg, horloge()?.TotalSeconds ?? 0);
+            }
+            catch
+            {
+                try { ffmpeg.Kill(); } catch { /* déjà parti */ } // pas de ffmpeg orphelin
+                throw;
+            }
         }
         catch (Exception e)
         {
+            // Trace dans le dossier de la game : diagnostiquable après coup.
+            try { File.WriteAllText(Path.Combine(dossierGame, "audio_erreur.log"), e.ToString()); } catch { }
             Console.Error.WriteLine($"[lol] piste audio jeu indisponible : {e.Message}");
             return null;
         }

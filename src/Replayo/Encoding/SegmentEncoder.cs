@@ -52,6 +52,7 @@ public sealed class SegmentEncoder(FrameQueue frames, AudioEngine? audio, Segmen
         TimeSpan? origineSegment = null;    // premier timestamp du segment (rebasage à 0)
         TimeSpan originePourRing = default; // timestamp global du début (pour l'anneau)
         TimeSpan horlogeAudio = default;
+        var murSegment = System.Diagnostics.Stopwatch.StartNew(); // rythme l'audio (voir plus bas)
         bool fini = false;
 
         mss.SampleRequested += (_, e) =>
@@ -76,8 +77,11 @@ public sealed class SegmentEncoder(FrameQueue frames, AudioEngine? audio, Segmen
                     // vidéo est cadencée par les vraies frames : sans garde-fou, la piste
                     // audio enfle de silence fabriqué (15 s d'audio par segment de 10 s) et
                     // la durée du conteneur devient fausse → gels de 5 s au concat des clips.
-                    // On rythme donc l'audio sur l'horloge vidéo, via le deferral (async,
-                    // sans bloquer le thread de rappel du MediaStreamSource).
+                    // On rythme donc l'audio sur l'HORLOGE MURALE du segment, via le deferral
+                    // (async, sans bloquer le thread de rappel). Jamais sur l'horloge vidéo :
+                    // si le MediaStreamSource sérialise ses demandes, attendre la vidéo depuis
+                    // la branche audio est un deadlock (vécu : capture gelée après 2 min).
+                    // Le mur avance toujours → l'attente est bornée par construction.
                     var requete = e.Request;
                     var deferralAudio = deferral;
                     deferral = null; // complété par la continuation asynchrone
@@ -85,13 +89,12 @@ public sealed class SegmentEncoder(FrameQueue frames, AudioEngine? audio, Segmen
                     {
                         try
                         {
-                            TimeSpan Cible() => origineSegment is null ? TimeSpan.Zero : HorlogeCapture - origineSegment.Value;
                             var avance = TimeSpan.FromMilliseconds(200);
-                            while (!fini && horlogeAudio > Cible() + avance)
+                            while (!fini && horlogeAudio > murSegment.Elapsed + avance)
                                 await Task.Delay(20, ct);
 
                             // Ne lire que le retard réel (borné 20 ms – 500 ms).
-                            var manque = Cible() + avance - horlogeAudio;
+                            var manque = murSegment.Elapsed + avance - horlogeAudio;
                             var octets = (int)Math.Clamp(manque.TotalSeconds * 48000 * 2 * 2, 3840, 96000) / 4 * 4;
                             var pcm = audio.LirePcmDisponible(octets);
                             if (pcm.Length == 0) pcm = new byte[3840]; // 20 ms de silence : ne jamais bloquer le mux
