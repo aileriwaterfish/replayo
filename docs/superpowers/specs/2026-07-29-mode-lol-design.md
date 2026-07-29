@@ -33,8 +33,8 @@ TikTok mobile (son tendance + description + publier).
     (Shutdowns : souhaités mais l'API Live Client ne les expose pas — hors
     périmètre tant que Riot ne le fournit pas.)
 - **Séquences** : événements distants de **< 12 s** fusionnés ; fenêtre de
-  **10 s avant** le premier événement à **7 s après** le dernier (élargie le
-  29/07 au soir : l'utilisateur veut plus de contexte par play) ; score de la
+  **8 s avant** le premier événement à **5 s après** le dernier (réglé par
+  itérations le 29/07 au soir : 6/4 trop sec, 10/7 trop long) ; score de la
   séquence = somme des scores de ses événements.
 - **Le résultat de la game clôt TOUJOURS la vidéo** (révision du 29/07 au
   soir) : clip dédié de la fin de game (~6 s avant / 6 s après le GameEnd),
