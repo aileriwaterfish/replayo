@@ -73,13 +73,18 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
 
     private static bool ProcessusJeuPresent() => Process.GetProcessesByName(ProcessusJeu).Length > 0;
 
+    /// Fichier témoin de test : accepte TOUTES les files (validation réelle du
+    /// pipeline sur une normale). Supprimer %AppData%\Replayo\test-toutes-files
+    /// pour revenir au comportement normal (ranked solo/duo uniquement).
+    private static bool ModeTestToutesFiles => File.Exists(Path.Combine(AppPaths.DossierConfig, "test-toutes-files"));
+
     private async Task TickIdleAsync()
     {
         if (!cfg().ModeLolActive || !recorder.EnCapture || !ProcessusJeuPresent()) return;
 
         var queue = await LcuClient.QueueIdAsync();
         if (queue is null) return; // client LCU pas prêt : on retentera
-        if (queue != QueueSoloDuo) { _etat = Etat.AttenteFinProcessus; return; }
+        if (queue != QueueSoloDuo && !ModeTestToutesFiles) { _etat = Etat.AttenteFinProcessus; return; }
 
         // Entrée en game : état neuf, buffer étendu, dossier de la game.
         _live = new LiveClientClient();
