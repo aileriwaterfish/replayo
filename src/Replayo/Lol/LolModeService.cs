@@ -104,8 +104,18 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
         recorder.FenetreBuffer(FenetreLolSecondes);
 
         // Piste audio « jeu seul » (condensés sans Spotify/Discord/micro).
+        // L'origine DOIT être datée avec l'horloge VIVE : la piste, elle, court en
+        // temps réel. L'horloge de l'encodeur retarde du remplissage de la FrameQueue
+        // (jusqu'à 90 frames = 1,5 s) et le pic de charge de l'écran de chargement la
+        // met justement au plus mal → origine trop tôt, son en avance dans le condensé
+        // (vécu le 30/07 : 1,552 s d'avance, mesuré par corrélation).
         var pidJeu = Process.GetProcessesByName(ProcessusJeu).FirstOrDefault()?.Id;
-        _audio = pidJeu is { } p ? AudioLolRecorder.Demarrer(p, _dossier, () => recorder.HorlogeCapture) : null;
+        _audio = pidJeu is { } p ? AudioLolRecorder.Demarrer(p, _dossier, () => recorder.HorlogeCaptureLive) : null;
+
+        // Trace des deux horloges : rend le retard de l'encodeur mesurable après coup.
+        File.AppendAllText(Path.Combine(_dossier, "events.log"),
+            $"# depart audio : live={recorder.HorlogeCaptureLive?.TotalSeconds:F3} " +
+            $"encodeur={recorder.HorlogeCapture?.TotalSeconds:F3}\n");
 
         _etat = Etat.EnGame;
     }
@@ -118,8 +128,12 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
         if (_moi is null) return; // la game charge encore
 
         var gameTime = await _live!.GameTimeAsync();
-        var horloge = recorder.HorlogeCapture;
-        if (gameTime is null || horloge is null) return;
+        // Deux horloges, deux usages : la VIVE date ce qui vient d'arriver (événements,
+        // PV) ; celle de l'ENCODEUR dit jusqu'où le buffer est réellement écrit, donc
+        // ce qui est clippable. Les confondre décale le condensé (cf. départ audio).
+        var horloge = recorder.HorlogeCaptureLive;
+        var horlogeEncodee = recorder.HorlogeCapture;
+        if (gameTime is null || horloge is null || horlogeEncodee is null) return;
 
         if (await _live.PvAsync() is { } pv) _pv.Add((horloge.Value, pv));
 
@@ -145,7 +159,7 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
             }
         }
 
-        await ClipperAsync(SequencesClippables(Sequences(), horloge.Value, _clippees, Fusion));
+        await ClipperAsync(SequencesClippables(Sequences(), horlogeEncodee.Value, _clippees, Fusion));
     }
 
     private async Task TickClotureAsync()

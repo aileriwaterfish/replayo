@@ -62,9 +62,10 @@ TikTok mobile (son tendance + description + publier).
   capturées avant la disparition du processus — l'écran de fin y figure.
 - **Montage** : séquences dans l'ordre **purement chronologique** (le cold
   open initialement prévu a été retiré à la demande de l'utilisateur le
-  30/07). **Micro fondu au noir de 0,25 s entre les séquences** (feedback du
-  30/07 : transitions trop soudaines — le fondu donne le temps de « digérer »),
-  fondu audio ~200 ms, **aucun texte incrusté**, aucune
+  30/07). **Cuts francs entre les séquences** : le micro fondu au noir de
+  0,25 s essayé le 30/07 a été vu à l'image puis rejeté par l'utilisateur le
+  même jour — retour aux coupes sèches (zéro artifice, comme IrelKing). Seul
+  reste un fondu audio ~200 ms (anti-clic). **Aucun texte incrusté**, aucune
   musique (le son tendance est ajouté par l'utilisateur dans TikTok).
   **Cadrage « zoom réduit » (validé par l'utilisateur le 29/07 au soir)** :
   carré central 1080×1080 (~56 % de la largeur — le champion sort rarement du
@@ -118,7 +119,15 @@ Replayo.Montage (worker séparé, lancé en fin de game)
   → `/lol-gameflow/v1/session` → `gameData.queue.id == 420`.
 - **Synchronisation des horloges** : à chaque poll,
   `tCapture(événement) = HorlogeCapture(maintenant) − (gameTime(maintenant) − eventTime)`.
-  Aucune horloge murale nécessaire.
+  Aucune horloge murale nécessaire. **Deux horloges de capture, à ne pas
+  confondre** (bug vécu le 30/07, son en avance de 1,552 s dans le condensé) :
+  la **vive** (`CaptureEngine.HorlogeLive`, dernière frame capturée) date ce qui
+  vient d'arriver — événements, PV, origine de la piste audio ; celle de
+  l'**encodeur** (`SegmentEncoder.HorlogeCapture`, frame que le transcodeur vient
+  de tirer) dit seulement jusqu'où le buffer est écrit, donc ce qui est
+  clippable. La seconde retarde sur la première du remplissage de la FrameQueue
+  (bornée à 90 frames = 1,5 s à 60 fps), et le pic de charge de l'écran de
+  chargement la met au plus mal — exactement quand la piste audio démarre.
 - **Clips de séquences** : réutilisation de l'anneau existant —
   `SegmentsPourIntervalle(début, fin)` + concat ffmpeg `-c copy` (comme
   Alt+F10). Précision au segment de 10 s : marge acceptée au clip, la coupe

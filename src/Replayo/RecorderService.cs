@@ -94,7 +94,15 @@ public sealed class RecorderService : IDisposable
     public void Redemarrer(ReplayoConfig cfg) { Arreter(); Demarrer(cfg); }
 
     /// Horloge de capture du pipeline principal (null si capture arrêtée).
+    /// ATTENTION : c'est l'horloge de l'ENCODEUR (frame que le transcodeur vient de
+    /// tirer) — elle marque « jusqu'où le buffer est écrit », d'où son usage pour
+    /// clipper. Elle retarde sur le direct de la profondeur de la FrameQueue.
     public TimeSpan? HorlogeCapture => _pipelines.Count > 0 ? _pipelines[0].Enc.HorlogeCapture : null;
+
+    /// Horloge de capture VIVE (dernière frame capturée) : « maintenant » sur la
+    /// timeline des segments. C'est elle qui doit dater un événement temps réel
+    /// (mode LoL), sinon l'événement est placé ~1,5 s trop tôt.
+    public TimeSpan? HorlogeCaptureLive => _pipelines.Count > 0 ? _pipelines[0].Capture.HorlogeLive : null;
 
     /// Fenêtre de rétention de tous les anneaux (mode LoL : étendue à 120 s en game).
     public void FenetreBuffer(int secondes) { foreach (var p in _pipelines) p.Ring.DureeMaxSecondes = secondes; }

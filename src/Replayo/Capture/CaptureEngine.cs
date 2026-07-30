@@ -18,6 +18,13 @@ public sealed class CaptureEngine(MonitorInfo ecran) : IDisposable
     public SizeInt32 Taille { get; private set; }
     public event Action? CaptureInterrompue;
 
+    /// Horloge de capture VIVE : horodatage de la dernière frame capturée, donc
+    /// « maintenant » sur la timeline des segments. À utiliser pour dater un
+    /// événement temps réel (mode LoL). Ne pas confondre avec
+    /// `SegmentEncoder.HorlogeCapture`, qui suit la frame que l'encodeur vient de
+    /// tirer et accuse donc le retard de la FrameQueue (~1,5 s à 60 fps).
+    public TimeSpan HorlogeLive { get; private set; }
+
     public void Demarrer()
     {
         _device = D3DHelper.CreerDeviceWinRT();
@@ -51,8 +58,9 @@ public sealed class CaptureEngine(MonitorInfo ecran) : IDisposable
         using var frame = pool.TryGetNextFrame();
         if (frame is null) return;
         if (_origine == TimeSpan.MinValue) _origine = frame.SystemRelativeTime;
+        HorlogeLive = frame.SystemRelativeTime - _origine;
         // La surface est référencée par la file ; l'encodeur la consomme puis la libère.
-        Frames.AjouterOuJeter(new(frame.Surface, frame.SystemRelativeTime - _origine));
+        Frames.AjouterOuJeter(new(frame.Surface, HorlogeLive));
     }
 
     public void Arreter()
