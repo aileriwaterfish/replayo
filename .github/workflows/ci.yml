@@ -1,0 +1,26 @@
+name: CI
+
+# Voir geckonow/.github/workflows/ci.yml : la tâche ClaudeBackupSync pousse le
+# travail en cours toutes les heures. Ce workflow signale la casse tout de suite.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    # TFM net8.0-windows10.0.22000.0 (WPF + Windows Graphics Capture) : runner
+    # Windows obligatoire, ça ne compile pas sur ubuntu.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - run: dotnet restore Replayo.sln
+
+      - run: dotnet build Replayo.sln --no-restore -c Release
+
+      - run: dotnet test Replayo.sln --no-build -c Release --nologo -v normal
