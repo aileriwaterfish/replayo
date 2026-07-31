@@ -6,24 +6,32 @@ namespace Replayo.Core;
 public static class AutostartManager
 {
     private const string Cle = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string Nom = "Replayo";
+    private const string NomDefaut = "Replayo";
 
-    public static bool EstActive()
+    public static bool EstActive() => EstActive(NomDefaut);
+    public static void Activer() => Activer(NomDefaut);
+    public static void Desactiver() => Desactiver(NomDefaut);
+
+    // Surcharges réservées aux tests. Activer() écrit Environment.ProcessPath, qui vaut
+    // testhost.exe sous le runner : un test qui écrit sur la vraie valeur "Replayo" y laisse
+    // le chemin du runner, et Replayo ne démarre plus avec la session (constaté le 31/07/2026,
+    // une game perdue). Les tests passent donc un nom de valeur bidon.
+    internal static bool EstActive(string nomValeur)
     {
         using var k = Registry.CurrentUser.OpenSubKey(Cle);
-        return k?.GetValue(Nom) is string;
+        return k?.GetValue(nomValeur) is string;
     }
 
-    public static void Activer()
+    internal static void Activer(string nomValeur)
     {
         using var k = Registry.CurrentUser.CreateSubKey(Cle);
         // Environment.ProcessPath = chemin réel de l'exe (jamais dotnet.exe en publié).
-        k.SetValue(Nom, $"\"{Environment.ProcessPath}\"");
+        k.SetValue(nomValeur, $"\"{Environment.ProcessPath}\"");
     }
 
-    public static void Desactiver()
+    internal static void Desactiver(string nomValeur)
     {
         using var k = Registry.CurrentUser.CreateSubKey(Cle);
-        k.DeleteValue(Nom, throwOnMissingValue: false);
+        k.DeleteValue(nomValeur, throwOnMissingValue: false);
     }
 }
