@@ -109,6 +109,11 @@ public sealed class RecorderService : IDisposable
         BrancherReactionsSysteme();
 
         EnCapture = true;
+        // Une ligne au démarrage : le journal n'est utile que si on peut vérifier
+        // qu'il fonctionne AVANT l'incident, et elle date chaque session de capture.
+        Journal.Ecrire($"[capture] démarrée — {_pipelines.Count} écran(s) : " +
+                       string.Join(", ", _pipelines.Select(p => $"{p.Capture.Taille.Width}x{p.Capture.Taille.Height}")) +
+                       $", buffer {cfg.DureeBufferSecondes} s, préréglage {cfg.Preset}");
         _ = Task.Delay(3000).ContinueWith(_ =>
         {
             if (EnCapture && !EncodageMateriel)
