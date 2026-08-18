@@ -12,8 +12,11 @@ namespace Replayo.Encoding;
 /// Encode le flux de frames GPU en segments MP4 de ~10 s (H.264, VIDÉO SEULE),
 /// avec accélération matérielle (NVENC/AMF/QuickSync via Media Foundation).
 /// Une session MediaStreamSource+MediaTranscoder par segment : chaque segment
-/// démarre sur une keyframe, les frames en attente pendant le bref redémarrage
-/// s'accumulent dans la FrameQueue bornée (aucune perte, timestamps continus).
+/// démarre sur une keyframe, les frames capturées pendant le redémarrage
+/// (~0,28 s, mesuré le 18/08/2026) s'accumulent dans la FrameQueue bornée.
+/// « Aucune perte » était écrit ici : c'est faux — la file jette la plus ancienne
+/// quand elle sature (FullMode.DropOldest), et la frame qui dépasse DureeSegment
+/// est abandonnée sans être encodée.
 /// L'audio n'est PAS muxé ici : le transcodeur tire ses flux en pull, et tout
 /// couplage audio/vidéo dans ce pipeline s'est avéré ingérable (piste audio qui
 /// enfle, ou deadlock, ou frames perdues — vécu). Le mix audio est encodé en

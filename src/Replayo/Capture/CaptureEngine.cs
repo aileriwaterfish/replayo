@@ -59,7 +59,17 @@ public sealed class CaptureEngine(MonitorInfo ecran) : IDisposable
         if (frame is null) return;
         if (_origine == TimeSpan.MinValue) _origine = frame.SystemRelativeTime;
         HorlogeLive = frame.SystemRelativeTime - _origine;
-        // La surface est référencée par la file ; l'encodeur la consomme puis la libère.
+        // ATTENTION — dette connue, mesurée le 18/08/2026, PAS corrigée ici.
+        // Le `using` ci-dessus rend le tampon au pool dès la sortie de cette méthode,
+        // alors que la surface part dans la FrameQueue pour un usage DIFFÉRÉ par
+        // l'encodeur. Le pool n'ayant que 2 tampons, les entrées de la file aliasent
+        // 2 textures : l'encodeur lit du contenu plus récent que l'horodatage qu'il
+        // écrit. Contraire au contrat WGC (une surface n'est valide que tant que sa
+        // frame est ouverte), et personne ne libère jamais de surface dans ce dépôt.
+        // Corriger demande soit ~140 Mo de VRAM (0,28 s de blocage mesuré à chaque
+        // frontière de segment × 60 fps × 8,3 Mo par texture 1080p BGRA), soit de
+        // supprimer ce blocage en préparant le transcodeur du segment suivant à
+        // l'avance. À faire avec une validation en jeu réel, pas à l'aveugle.
         Frames.AjouterOuJeter(new(frame.Surface, HorlogeLive));
     }
 
