@@ -106,4 +106,38 @@ public class MontageServiceTests
         Assert.Contains("libx264", args);
         Assert.Contains("condense.mp4", args);
     }
+
+    /// Cas réel du 2026-08-17 : la séquence commence AVANT le segment qui la porte
+    /// (DebutSec 12446,471 < FichierDebutSec 12448,371), ce qui produisait
+    /// `-ss -1.900` et un plan qui partait n'importe où.
+    [Fact]
+    public void Timeline_SequenceCommencantAvantSonFichier_NeProduitPasDeDepartNegatif()
+    {
+        var m = Manifeste(Seq("seq_01.mp4", 355, 12446.4712895, 12461.4521244, 12448.3705874, 12456.5));
+        var plans = MontageService.Timeline(m);
+        var p = Assert.Single(plans);
+        Assert.Equal(0.0, p.DepartSec, 3);
+        // Fin inchangée : on ne perd que la tête manquante (1,900 s sur 14,981 s)
+        // → 12461,4521244 − 12448,3705874.
+        Assert.Equal(13.081537, p.DureeSec, 5);
+        // L'audio isolé doit être décalé d'autant, sinon il part 1,9 s trop tôt.
+        Assert.Equal(12448.3705874, p.DebutCaptureSec, 4);
+    }
+
+    [Fact]
+    public void Timeline_SequenceEntierementHorsDeSonFichier_EstEcartee()
+    {
+        var m = Manifeste(Seq("seq_01.mp4", 100, 500, 510, 520, 505));
+        Assert.Empty(MontageService.Timeline(m));
+    }
+
+    [Fact]
+    public void Timeline_CasNormal_InchangeParLeGarde()
+    {
+        var m = Manifeste(Seq("seq_01.mp4", 40, 100, 160, 95, 130));
+        var p = Assert.Single(MontageService.Timeline(m));
+        Assert.Equal(5.0, p.DepartSec, 3);
+        Assert.Equal(60.0, p.DureeSec, 3);
+        Assert.Equal(100.0, p.DebutCaptureSec, 3);
+    }
 }

@@ -37,8 +37,29 @@ public static class MontageService
     /// l'utilisateur le 30/07) ; le résultat de la game arrive naturellement en dernier.
     public static List<PlanDeCoupe> Timeline(ManifesteLol m)
         => Selectionner(m.Sequences, m.DureeCibleMaxSec)
-            .Select(s => new PlanDeCoupe(s.Fichier, s.DebutSec - s.FichierDebutSec, s.FinSec - s.DebutSec, s.DebutSec))
+            .Select(PlanBorne)
+            .Where(p => p.DureeSec > 0)
             .ToList();
+
+    /// Une séquence peut commencer AVANT le segment qui la porte : trou de capture ou
+    /// segment amont déjà purgé de l'anneau. Vécu le 17/08/2026 (DebutSec 12446,471
+    /// pour un fichier démarrant à 12448,371) → `-ss -1.900` passé à ffmpeg, plan
+    /// parti n'importe où. On démarre alors au début du fichier, on raccourcit d'autant
+    /// (la fin reste juste) et on décale la piste audio du même montant, sinon le son
+    /// prend de l'avance sur l'image.
+    private static PlanDeCoupe PlanBorne(SequenceManifeste s)
+    {
+        var depart = s.DebutSec - s.FichierDebutSec;
+        var duree = s.FinSec - s.DebutSec;
+        var debutCapture = s.DebutSec;
+        if (depart < 0)
+        {
+            duree += depart;
+            debutCapture -= depart;
+            depart = 0;
+        }
+        return new PlanDeCoupe(s.Fichier, depart, duree, debutCapture);
+    }
 
     /// Commande ffmpeg complète : -ss/-t par entrée, crop central 9:16 + scale,
     /// fondus audio en entrée/sortie de chaque plan, concat, H.264 + AAC.
@@ -86,9 +107,9 @@ public static class MontageService
     public static async Task<int> ExecuterAsync(string dossierGame)
     {
         var manifeste = ManifesteLol.Lire(Path.Combine(dossierGame, "manifest.json"));
-        if (manifeste is null) { Console.Error.WriteLine("[montage] manifest illisible"); return 1; }
+        if (manifeste is null) { Journal.Ecrire("[montage] manifest illisible"); return 1; }
         if (!manifeste.Retenue || manifeste.Sequences.Count == 0)
-        { Console.WriteLine("[montage] game non retenue : rien à monter"); return 0; }
+        { Journal.Ecrire("[montage] game non retenue : rien à monter"); return 0; }
 
         var plans = Timeline(manifeste);
         var sortie = Path.Combine(dossierGame, "condense_vertical.mp4");
@@ -96,7 +117,7 @@ public static class MontageService
         // Piste « jeu seul » (plan C) si présente ; sinon mix complet + avertissement.
         var audioLol = manifeste.AudioLolFichier is { } a && File.Exists(Path.Combine(dossierGame, a)) ? a : null;
         if (audioLol is null)
-            Console.Error.WriteLine("[montage] pas de piste audio isolée : le condensé contient le MIX COMPLET (musique/vocal inclus).");
+            Journal.Ecrire("[montage] pas de piste audio isolée : le condensé contient le MIX COMPLET (musique/vocal inclus).");
 
         var psi = new ProcessStartInfo(AppPaths.FfmpegExe,
             ArgumentsFfmpeg(plans, dossierGame, sortie, audioLol, manifeste.AudioLolDebutSec ?? 0))
@@ -105,7 +126,7 @@ public static class MontageService
         using var proc = Process.Start(psi)!;
         var erreurs = await proc.StandardError.ReadToEndAsync();
         await proc.WaitForExitAsync();
-        if (proc.ExitCode != 0) { Console.Error.WriteLine($"[montage] ffmpeg : {erreurs}"); return 2; }
+        if (proc.ExitCode != 0) { Journal.Ecrire($"[montage] ffmpeg : {erreurs}"); return 2; }
 
         // Livraison manuelle (décision du 29/07 : pas d'API TikTok) : copie dans
         // Vidéos\Replayo\TikTok en attente, et dans OneDrive s'il existe pour que
@@ -115,14 +136,22 @@ public static class MontageService
         Directory.CreateDirectory(attente);
         File.Copy(sortie, Path.Combine(attente, nom), overwrite: true);
 
+        // Cette copie a déjà échoué en silence sur 3 games le 31/07/2026 (condensé local
+        // bien présent, rien sur l'iPhone) : elle est maintenant tracée dans les deux cas.
         if (Environment.GetEnvironmentVariable("OneDrive") is { Length: > 0 } oneDrive && Directory.Exists(oneDrive))
         {
-            var dossierTel = Path.Combine(oneDrive, "Replayo TikTok");
-            Directory.CreateDirectory(dossierTel);
-            File.Copy(sortie, Path.Combine(dossierTel, nom), overwrite: true);
+            var cible = Path.Combine(oneDrive, "Replayo TikTok", nom);
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(cible)!);
+                File.Copy(sortie, cible, overwrite: true);
+                Journal.Ecrire($"[montage] copié vers OneDrive : {cible}");
+            }
+            catch (Exception e) { Journal.Ecrire($"[montage] copie OneDrive échouée ({cible}) : {e.Message}"); }
         }
+        else Journal.Ecrire("[montage] variable OneDrive absente ou dossier introuvable : pas de copie iPhone.");
 
-        Console.WriteLine($"[montage] condensé prêt : {Path.Combine(attente, nom)}");
+        Journal.Ecrire($"[montage] condensé prêt : {Path.Combine(attente, nom)}");
         return 0;
     }
 }

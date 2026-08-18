@@ -76,7 +76,7 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
                     break;
             }
         }
-        catch (Exception e) { Console.Error.WriteLine($"[lol] tick : {e.Message}"); }
+        catch (Exception e) { Journal.Ecrire($"[lol] tick : {e.Message}"); }
         finally { Interlocked.Exchange(ref _dansTick, 0); }
     }
 
@@ -223,7 +223,7 @@ public sealed class LolModeService(RecorderService recorder, Func<ReplayoConfig>
             Process.Start(new ProcessStartInfo(Environment.ProcessPath!, $"--montage \"{dossier}\"")
             { UseShellExecute = false, CreateNoWindow = true });
         }
-        catch (Exception e) { Console.Error.WriteLine($"[lol] worker montage : {e.Message}"); }
+        catch (Exception e) { Journal.Ecrire($"[lol] worker montage : {e.Message}"); }
     }
 
     private List<SequenceLol> Sequences()

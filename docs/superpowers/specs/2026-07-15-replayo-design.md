@@ -56,7 +56,7 @@ compressés — coût quasi nul, résultat instantané.
 | `CaptureEngine` | Un par écran sélectionné : session WGC → frames GPU → encodeur matériel (Media Foundation), sortie = échantillons H.264 compressés | Windows (WGC, MF) |
 | `AudioEngine` | Loopback système + micro (NAudio/WASAPI), mix simple, sortie AAC | NAudio |
 | `SegmentRing` | Anneau de segments ~10 s : segment courant en RAM, spill sur disque (`%LocalAppData%\Replayo\buffer`), suppression des plus vieux, index horodaté ; purge du dossier au démarrage (résilience crash) | — |
-| `ClipService` | À la demande : sélectionne les segments couvrant les N dernières secondes, assemble via ffmpeg `-c copy` vers MP4/MKV, coupe précise au début, nomme et range le fichier, joue le son | SegmentRing, ffmpeg |
+| `ClipService` | À la demande : sélectionne les segments couvrant les N dernières secondes, assemble via ffmpeg `-c copy` vers MP4/MKV **par segments entiers** (la découpe exacte a été rejetée le 19/07, cf. `2026-07-19-duree-manuelle-design.md` : la durée demandée est un minimum, le clip peut dépasser de moins d'un segment), nomme et range le fichier, joue le son | SegmentRing, ffmpeg |
 | `ForegroundAppTracker` | Nom de l'appli au premier plan au moment du clip (pour le dossier de rangement) | Windows (Win32) |
 | `HotkeyManager` | Raccourci global (RegisterHotKey), Alt+F10 par défaut, détection de conflit | Windows (Win32) |
 | `LicenseService` | Activation clé Lemon Squeezy (API publique, aucun secret embarqué), revalidation toutes les 24 h, grâce hors-ligne 72 h, verrouillage si invalide/résilié ; clé chiffrée DPAPI dans `%AppData%\Replayo` | API Lemon Squeezy |

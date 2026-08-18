@@ -42,7 +42,7 @@ public sealed class AudioMixRecorder : IDisposable
         }
         catch (Exception e)
         {
-            Console.Error.WriteLine($"[audio] piste mix indisponible : {e.Message}");
+            Journal.Ecrire($"[audio] piste mix indisponible : {e.Message}");
             return null;
         }
     }

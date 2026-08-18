@@ -54,7 +54,7 @@ public sealed class AudioLolRecorder : IDisposable
         {
             // Trace dans le dossier de la game : diagnostiquable après coup.
             try { File.WriteAllText(Path.Combine(dossierGame, "audio_erreur.log"), e.ToString()); } catch { }
-            Console.Error.WriteLine($"[lol] piste audio jeu indisponible : {e.Message}");
+            Journal.Ecrire($"[lol] piste audio jeu indisponible : {e.Message}");
             return null;
         }
     }

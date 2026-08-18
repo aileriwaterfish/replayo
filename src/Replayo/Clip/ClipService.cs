@@ -54,7 +54,7 @@ public sealed class ClipService(ReplayoConfig cfg)
         await proc.WaitForExitAsync();
         File.Delete(liste);
 
-        if (proc.ExitCode != 0) { Console.Error.WriteLine($"[clip] ffmpeg : {erreurs}"); return false; }
+        if (proc.ExitCode != 0) { Journal.Ecrire($"[clip] ffmpeg : {erreurs}"); return false; }
         return true;
     }
 }
