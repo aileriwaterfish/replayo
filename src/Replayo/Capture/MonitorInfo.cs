@@ -24,7 +24,9 @@ public sealed record MonitorInfo(IntPtr Handle, string Nom, int Largeur, int Hau
         EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (IntPtr h, IntPtr _, ref RECT r, IntPtr _) =>
         {
             var mi = new MONITORINFOEX { cbSize = Marshal.SizeOf<MONITORINFOEX>() };
-            GetMonitorInfoW(h, ref mi);
+            // La topologie peut changer entre EnumDisplayMonitors et ce rappel.
+            // Un HMONITOR devenu invalide ne doit pas atteindre CreateForMonitor.
+            if (!GetMonitorInfoW(h, ref mi)) return true;
             liste.Add(new(h, mi.szDevice, mi.rcMonitor.R - mi.rcMonitor.L, mi.rcMonitor.B - mi.rcMonitor.T,
                           (mi.dwFlags & 1) != 0, liste.Count));
             return true;

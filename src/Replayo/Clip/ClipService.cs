@@ -20,13 +20,27 @@ public sealed class ClipService(ReplayoConfig cfg)
     {
         var fenetre = TimeSpan.FromSeconds(cfg.DureeBufferSecondes);
         var debutFenetre = horloge - fenetre; if (debutFenetre < TimeSpan.Zero) debutFenetre = TimeSpan.Zero;
-        var (segments, debutPremier) = ring.IntervalleAvecDebut(debutFenetre, horloge);
-        if (segments.Count == 0) return null;
+        using var location = ring.LouerIntervalle(debutFenetre, horloge);
+        if (location.Segments.Count == 0) return null;
 
         var racine = string.IsNullOrWhiteSpace(cfg.DossierSortie) ? AppPaths.DossierSortieDefaut : cfg.DossierSortie;
-        var sortie = ConstruireCheminSortie(racine, ForegroundAppTracker.NomApplication(), DateTime.Now, cfg.FormatSortie, suffixe);
+        var sortie = CheminDisponible(ConstruireCheminSortie(
+            racine, ForegroundAppTracker.NomApplication(), DateTime.Now, cfg.FormatSortie, suffixe));
 
-        return await AssemblerAsync(segments, sortie, audioMix, debutPremier.TotalSeconds) ? sortie : null;
+        return await AssemblerAsync(location.Segments, sortie, audioMix, location.DebutPremier.TotalSeconds) ? sortie : null;
+    }
+
+    internal static string CheminDisponible(string chemin)
+    {
+        if (!File.Exists(chemin)) return chemin;
+        var dossier = Path.GetDirectoryName(chemin)!;
+        var nom = Path.GetFileNameWithoutExtension(chemin);
+        var extension = Path.GetExtension(chemin);
+        for (var i = 2; ; i++)
+        {
+            var candidat = Path.Combine(dossier, $"{nom}_{i}{extension}");
+            if (!File.Exists(candidat)) return candidat;
+        }
     }
 
     /// Assemble des segments (vidéo seule) en un fichier final SANS ré-encodage

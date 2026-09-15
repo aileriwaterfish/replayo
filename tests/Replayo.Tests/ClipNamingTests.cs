@@ -20,4 +20,19 @@ public class ClipNamingTests
         Assert.DoesNotContain('<', chemin.Substring(3));
         Assert.EndsWith("_ecran2.mkv", chemin);
     }
+
+    [Fact]
+    public void CheminDisponible_NecrasePasDeuxClipsDeLaMemeSeconde()
+    {
+        var dossier = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(dossier);
+        var chemin = Path.Combine(dossier, "Replayo_Jeu_2026-09-15_12h00m00.mp4");
+        File.WriteAllText(chemin, "premier");
+        File.WriteAllText(Path.Combine(dossier, "Replayo_Jeu_2026-09-15_12h00m00_2.mp4"), "deuxieme");
+
+        var disponible = ClipService.CheminDisponible(chemin);
+
+        Assert.Equal(Path.Combine(dossier, "Replayo_Jeu_2026-09-15_12h00m00_3.mp4"), disponible);
+        Directory.Delete(dossier, recursive: true);
+    }
 }

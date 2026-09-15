@@ -22,9 +22,12 @@ public sealed class RecorderService : IDisposable
     private AudioMixRecorder? _audioMix;
     private CancellationTokenSource? _cts;
     private System.Threading.Timer? _surveillanceDisque;
-    private System.Threading.Timer? _surveillanceCapture;
-    private readonly SurveillanceCapture _chienDeGarde = new();
+    private readonly SemaphoreSlim _verrouClips = new(1, 1);
     private int _redemarrageEnCours;
+    private int _versionDemandeRedemarrage;
+    private int _generationCapture;
+    private string _derniereRaisonRedemarrage = "événement système";
+    private volatile bool _captureSouhaitee;
     private bool _reactionsSystemeBranchees;
     private ReplayoConfig _cfg = new();
 
@@ -34,108 +37,119 @@ public sealed class RecorderService : IDisposable
 
     public void Demarrer(ReplayoConfig cfg)
     {
+        _captureSouhaitee = true;
+        DemarrerInterne(cfg);
+    }
+
+    private void DemarrerInterne(ReplayoConfig cfg)
+    {
         if (EnCapture) return;
         _cfg = cfg;
-        var preset = QualityPreset.DepuisNom(cfg.Preset);
-        var ecrans = MonitorInfo.EnumererEcrans();
-        var sources = cfg.SourcesEcrans.Count == 0
-            ? ecrans.Where(e => e.Principal).ToList()
-            : ecrans.Where(e => cfg.SourcesEcrans.Contains(e.Index)).ToList();
-        if (sources.Count == 0) { Notification?.Invoke("Aucun écran source disponible."); return; }
-
-        _cts = new CancellationTokenSource();
-        _audio = AudioEngine.CreerSiActive(cfg);
-        _audio?.Demarrer();
-        // Mix audio encodé en continu à côté du buffer (les segments sont vidéo seule) ;
-        // l'audio est remis au moment du clip, découpé par horloge de capture.
-        if (_audio is not null)
-            _audioMix = AudioMixRecorder.Demarrer(_audio, Path.Combine(AppPaths.DossierBuffer, "audio_mix.aac"));
-
-        foreach (var (ecran, i) in sources.Select((e, i) => (e, i)))
+        var generation = Interlocked.Increment(ref _generationCapture);
+        try
         {
-            var ring = new SegmentRing(Path.Combine(AppPaths.DossierBuffer, $"ecran{ecran.Index}"), cfg.DureeBufferSecondes);
-            ring.PurgerAuDemarrage();
-            var capture = new CaptureEngine(ecran);
-            capture.CaptureInterrompue += () =>
+            var preset = QualityPreset.DepuisNom(cfg.Preset);
+            var ecrans = MonitorInfo.EnumererEcrans();
+            var sources = cfg.SourcesEcrans.Count == 0
+                ? ecrans.Where(e => e.Principal).ToList()
+                : ecrans.Where(e => cfg.SourcesEcrans.Contains(e.Index)).ToList();
+            if (sources.Count == 0) throw new InvalidOperationException("Aucun écran source disponible.");
+
+            _cts = new CancellationTokenSource();
+            _audio = AudioEngine.CreerSiActive(cfg);
+            _audio?.Demarrer();
+            // Mix audio encodé en continu à côté du buffer (les segments sont vidéo seule) ;
+            // l'audio est remis au moment du clip, découpé par horloge de capture.
+            if (_audio is not null)
+                _audioMix = AudioMixRecorder.Demarrer(_audio, Path.Combine(AppPaths.DossierBuffer, "audio_mix.aac"));
+
+            foreach (var (ecran, i) in sources.Select((e, i) => (e, i)))
             {
-                Notification?.Invoke($"Écran {ecran.Index + 1} interrompu — capture relancée.");
-                PlanifierRedemarrage($"écran {ecran.Index + 1} interrompu");
-            };
-            capture.Demarrer();
-            var enc = new SegmentEncoder(capture.Frames, ring, preset, capture.Taille);
-            _ = enc.BoucleEncodageAsync(_cts.Token);
-            var pipeline = new Pipeline(capture, enc, ring, sources.Count > 1 ? $"ecran{ecran.Index + 1}" : null);
-            _pipelines.Add(pipeline);
-            _principal ??= pipeline;
+                var ring = new SegmentRing(Path.Combine(AppPaths.DossierBuffer, $"ecran{ecran.Index}"), cfg.DureeBufferSecondes);
+                ring.PurgerAuDemarrage();
+                var capture = new CaptureEngine(ecran);
+                capture.CaptureInterrompue += () =>
+                {
+                    if (generation != Volatile.Read(ref _generationCapture) || !_captureSouhaitee) return;
+                    Notification?.Invoke($"Écran {ecran.Index + 1} interrompu — capture relancée.");
+                    PlanifierRedemarrage($"écran {ecran.Index + 1} interrompu");
+                };
+                capture.Demarrer();
+                var enc = new SegmentEncoder(capture.Frames, ring, preset, capture.Taille);
+                _ = enc.BoucleEncodageAsync(_cts.Token);
+                var pipeline = new Pipeline(capture, enc, ring, sources.Count > 1 ? $"ecran{ecran.Index + 1}" : null);
+                _pipelines.Add(pipeline);
+                _principal ??= pipeline;
+            }
+
+            // Surveillance disque : < 2 Go libres sur le volume du buffer → pause.
+            _surveillanceDisque = new System.Threading.Timer(_ =>
+            {
+                try
+                {
+                    var libre = new DriveInfo(Path.GetPathRoot(AppPaths.DossierBuffer)!).AvailableFreeSpace;
+                    if (libre < 2L * 1024 * 1024 * 1024)
+                    {
+                        Arreter();
+                        Notification?.Invoke("Disque presque plein (< 2 Go) : capture mise en pause.");
+                    }
+                }
+                catch { /* volume indisponible : ignoré */ }
+            }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+
+            // Une horloge WGC peut rester immobile aussi longtemps que l'image ne
+            // change pas. On ne peut donc pas s'en servir comme preuve de panne :
+            // l'ancien watchdog a causé 1 133 fausses relances et vidait le buffer.
+            // Les vraies invalidations sont traitées par Resume, DisplaySettingsChanged
+            // et GraphicsCaptureItem.Closed.
+            BrancherReactionsSysteme();
+
+            EnCapture = true;
+            Journal.Ecrire($"[capture] démarrée — {_pipelines.Count} écran(s) : " +
+                           string.Join(", ", _pipelines.Select(p => $"{p.Capture.Taille.Width}x{p.Capture.Taille.Height}")) +
+                           $", buffer {cfg.DureeBufferSecondes} s, préréglage {cfg.Preset}");
+            _ = Task.Delay(3000).ContinueWith(_ =>
+            {
+                if (EnCapture && !EncodageMateriel)
+                    Notification?.Invoke("Encodeur matériel indisponible : repli logiciel (CPU accru).");
+            });
         }
-
-        // Surveillance disque : < 2 Go libres sur le volume du buffer → pause.
-        _surveillanceDisque = new System.Threading.Timer(_ =>
+        catch
         {
-            try
-            {
-                var libre = new DriveInfo(Path.GetPathRoot(AppPaths.DossierBuffer)!).AvailableFreeSpace;
-                if (libre < 2L * 1024 * 1024 * 1024)
-                {
-                    Arreter();
-                    Notification?.Invoke("Disque presque plein (< 2 Go) : capture mise en pause.");
-                }
-            }
-            catch { /* volume indisponible : ignoré */ }
-        }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
-
-        // Chien de garde : une session Windows Graphics Capture peut mourir sans rien
-        // signaler (mise en veille du poste), l'horloge se figeant simplement — on a
-        // ainsi enregistré 4 parties de LoL sur un bureau périmé les 16 et 17/08/2026.
-        _chienDeGarde.Reinitialiser(DateTime.UtcNow);
-        _surveillanceCapture = new System.Threading.Timer(_ =>
-        {
-            try
-            {
-                switch (_chienDeGarde.Observer(HorlogeCaptureLive, DateTime.UtcNow))
-                {
-                    case DecisionSurveillance.Redemarrer:
-                        PlanifierRedemarrage($"horloge de capture gelée (tentative {_chienDeGarde.RedemarragesConsecutifs})");
-                        break;
-                    case DecisionSurveillance.Abandon:
-                        Journal.Ecrire("[capture] gelée et non récupérable après plusieurs relances : abandon.");
-                        Notification?.Invoke("Capture bloquée : relances sans effet. Redémarre Replayo.");
-                        break;
-                }
-            }
-            catch (Exception e) { Journal.Ecrire($"[capture] surveillance : {e.Message}"); }
-        }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
-
-        BrancherReactionsSysteme();
-
-        EnCapture = true;
-        // Une ligne au démarrage : le journal n'est utile que si on peut vérifier
-        // qu'il fonctionne AVANT l'incident, et elle date chaque session de capture.
-        Journal.Ecrire($"[capture] démarrée — {_pipelines.Count} écran(s) : " +
-                       string.Join(", ", _pipelines.Select(p => $"{p.Capture.Taille.Width}x{p.Capture.Taille.Height}")) +
-                       $", buffer {cfg.DureeBufferSecondes} s, préréglage {cfg.Preset}");
-        _ = Task.Delay(3000).ContinueWith(_ =>
-        {
-            if (EnCapture && !EncodageMateriel)
-                Notification?.Invoke("Encodeur matériel indisponible : repli logiciel (CPU accru).");
-        });
+            NettoyerCapture();
+            throw;
+        }
     }
 
     public void Arreter()
     {
-        if (!EnCapture) return;
+        _captureSouhaitee = false;
+        _verrouClips.Wait();
+        try { NettoyerCapture(); }
+        finally { _verrouClips.Release(); }
+    }
+
+    private void NettoyerCapture()
+    {
         EnCapture = false;
+        Interlocked.Increment(ref _generationCapture);
         _surveillanceDisque?.Dispose(); _surveillanceDisque = null;
-        _surveillanceCapture?.Dispose(); _surveillanceCapture = null;
         _cts?.Cancel();
         _principal = null;
         foreach (var p in _pipelines) p.Capture.Arreter();
         _pipelines.Clear();
         _audioMix?.Dispose(); _audioMix = null;
         _audio?.Dispose(); _audio = null;
+        _cts?.Dispose(); _cts = null;
     }
 
-    public void Redemarrer(ReplayoConfig cfg) { Arreter(); Demarrer(cfg); }
+    public void Redemarrer(ReplayoConfig cfg)
+    {
+        _captureSouhaitee = true;
+        _verrouClips.Wait();
+        try { NettoyerCapture(); DemarrerInterne(cfg); }
+        finally { _verrouClips.Release(); }
+    }
 
     /// Réveil du poste et changement de configuration d'écran invalident la session de
     /// capture sans que WGC ne signale quoi que ce soit : on relance sans attendre que
@@ -160,21 +174,58 @@ public sealed class RecorderService : IDisposable
     /// seule à la fois. Le délai laisse l'affichage se stabiliser après un réveil.
     private void PlanifierRedemarrage(string raison)
     {
-        if (!EnCapture) return;
+        if (!_captureSouhaitee) return;
+        _derniereRaisonRedemarrage = raison;
+        Interlocked.Increment(ref _versionDemandeRedemarrage);
         if (Interlocked.Exchange(ref _redemarrageEnCours, 1) == 1) return;
         Journal.Ecrire($"[capture] relance demandée : {raison}");
         _ = Task.Run(async () =>
         {
+            var versionTraitee = 0;
             try
             {
-                await Task.Delay(2000);
-                var cfg = _cfg;
-                Redemarrer(cfg);
-                Journal.Ecrire($"[capture] relance terminée : EnCapture={EnCapture}, pipelines={_pipelines.Count}");
-                if (!EnCapture) Notification?.Invoke("Capture non relancée — vérifie les écrans.");
+                while (_captureSouhaitee)
+                {
+                    // Debounce : attendre 2 s après le DERNIER événement d'une rafale,
+                    // pas 2 s après le premier pendant que Windows change encore ses écrans.
+                    var versionCible = Volatile.Read(ref _versionDemandeRedemarrage);
+                    await Task.Delay(2000);
+                    if (versionCible != Volatile.Read(ref _versionDemandeRedemarrage)) continue;
+
+                    var succes = false;
+                    for (var tentative = 1; tentative <= 5 && _captureSouhaitee; tentative++)
+                    {
+                        try
+                        {
+                            Redemarrer(_cfg); // ré-énumère les HMONITOR à chaque essai
+                            succes = EnCapture;
+                            if (succes) break;
+                        }
+                        catch (Exception ex)
+                        {
+                            Journal.Ecrire($"[capture] relance échouée ({tentative}/5) : {ex}");
+                        }
+                        if (tentative < 5) await Task.Delay(TimeSpan.FromSeconds(tentative));
+                    }
+
+                    versionTraitee = versionCible;
+                    if (!succes)
+                    {
+                        Notification?.Invoke("Capture non relancée après 5 essais — redémarre Replayo.");
+                        break;
+                    }
+
+                    Journal.Ecrire($"[capture] relance terminée : EnCapture={EnCapture}, pipelines={_pipelines.Count}");
+                    if (versionCible == Volatile.Read(ref _versionDemandeRedemarrage)) break;
+                }
             }
-            catch (Exception ex) { Journal.Ecrire($"[capture] relance échouée : {ex}"); }
-            finally { Interlocked.Exchange(ref _redemarrageEnCours, 0); }
+            catch (Exception ex) { Journal.Ecrire($"[capture] orchestration de relance : {ex}"); }
+            finally
+            {
+                Interlocked.Exchange(ref _redemarrageEnCours, 0);
+                if (_captureSouhaitee && Volatile.Read(ref _versionDemandeRedemarrage) > versionTraitee)
+                    PlanifierRedemarrage(_derniereRaisonRedemarrage);
+            }
         });
     }
 
@@ -199,28 +250,43 @@ public sealed class RecorderService : IDisposable
     /// imposé. Rend aussi le début réel du fichier (frontière de segment ≤ debut).
     public async Task<(string Chemin, TimeSpan DebutReel)?> ClipperIntervalleAsync(TimeSpan debut, TimeSpan fin, string sortie)
     {
-        if (!EnCapture || _pipelines.Count == 0) return null;
-        var principal = _principal;
-        if (principal is null) return null;
-        var (segments, debutPremier) = principal.Ring.IntervalleAvecDebut(debut, fin);
-        if (segments.Count == 0) return null;
-        return await ClipService.AssemblerAsync(segments, sortie, CheminAudioMix, debutPremier.TotalSeconds)
-            ? (sortie, debutPremier) : null;
+        await _verrouClips.WaitAsync();
+        try
+        {
+            if (!EnCapture || _pipelines.Count == 0) return null;
+            var principal = _principal;
+            if (principal is null) return null;
+            using var location = principal.Ring.LouerIntervalle(debut, fin);
+            if (location.Segments.Count == 0) return null;
+            return await ClipService.AssemblerAsync(location.Segments, sortie, CheminAudioMix, location.DebutPremier.TotalSeconds)
+                ? (sortie, location.DebutPremier) : null;
+        }
+        finally { _verrouClips.Release(); }
     }
 
     public async Task<List<string>> ClipperAsync()
     {
-        var resultats = new List<string>();
-        if (!EnCapture) return resultats;
-        var clips = new ClipService(_cfg);
-        foreach (var (p, i) in _pipelines.Select((p, i) => (p, i)))
+        await _verrouClips.WaitAsync();
+        try
         {
-            // L'audio (mix) n'accompagne que l'écran principal, comme avant le découplage.
-            var chemin = await clips.CreerClipAsync(p.Ring, p.Enc.HorlogeCapture, p.Suffixe,
-                i == 0 ? CheminAudioMix : null);
-            if (chemin is not null) resultats.Add(chemin);
+            var resultats = new List<string>();
+            Journal.Ecrire("[clip] demande reçue");
+            if (!EnCapture) { Journal.Ecrire("[clip] refusé : capture inactive"); return resultats; }
+            var clips = new ClipService(_cfg);
+            foreach (var (p, i) in _pipelines.Select((p, i) => (p, i)))
+            {
+                // L'audio (mix) n'accompagne que l'écran principal, comme avant le découplage.
+                var chemin = await clips.CreerClipAsync(p.Ring, p.Enc.HorlogeCapture, p.Suffixe,
+                    i == 0 ? CheminAudioMix : null);
+                if (chemin is not null) resultats.Add(chemin);
+            }
+            Journal.Ecrire(resultats.Count == 0
+                ? "[clip] aucun segment disponible"
+                : $"[clip] sauvegardé : {string.Join(" ; ", resultats)}");
+            return resultats;
         }
-        return resultats;
+        catch (Exception ex) { Journal.Ecrire($"[clip] erreur : {ex}"); throw; }
+        finally { _verrouClips.Release(); }
     }
 
     public void Dispose()
@@ -232,5 +298,6 @@ public sealed class RecorderService : IDisposable
             _reactionsSystemeBranchees = false;
         }
         Arreter();
+        _verrouClips.Dispose();
     }
 }

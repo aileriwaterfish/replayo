@@ -53,20 +53,28 @@ public static class Program
 
         sauvegarderClip = () => _ = Task.Run(async () =>
         {
-            var chemins = await recorder.ClipperAsync();
-            foreach (var chemin in chemins)
-                app.Dispatcher.Invoke(() =>
-                {
-                    var final = chemin;
-                    if (cfgCourante.NommageManuel)
+            try
+            {
+                var chemins = await recorder.ClipperAsync();
+                foreach (var chemin in chemins)
+                    app.Dispatcher.Invoke(() =>
                     {
-                        var dlg = new RenameDialog(chemin);
-                        dlg.ShowDialog();
-                        final = dlg.CheminFinal;
-                    }
-                    ToastWindow.Afficher(Path.GetFileName(final), cfgCourante.DureeBufferSecondes);
-                });
-            if (chemins.Count == 0) tray.Notifier("Aucun clip : la capture n'est pas active.");
+                        var final = chemin;
+                        if (cfgCourante.NommageManuel)
+                        {
+                            var dlg = new RenameDialog(chemin);
+                            dlg.ShowDialog();
+                            final = dlg.CheminFinal;
+                        }
+                        ToastWindow.Afficher(Path.GetFileName(final), cfgCourante.DureeBufferSecondes);
+                    });
+                if (chemins.Count == 0) tray.Notifier("Aucun clip : le buffer n'est pas encore prêt.");
+            }
+            catch (Exception ex)
+            {
+                Journal.Ecrire($"[clip] tâche interrompue : {ex}");
+                tray.Notifier("Clip non sauvegardé — consulte replayo.log.");
+            }
         });
 
         void BrancherRaccourci(ReplayoConfig cfg)

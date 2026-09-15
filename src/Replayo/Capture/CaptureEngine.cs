@@ -10,9 +10,11 @@ namespace Replayo.Capture;
 public sealed class CaptureEngine(MonitorInfo ecran) : IDisposable
 {
     private IDirect3DDevice? _device;
+    private GraphicsCaptureItem? _item;
     private Direct3D11CaptureFramePool? _pool;
     private GraphicsCaptureSession? _session;
     private TimeSpan _origine = TimeSpan.MinValue;
+    private int _captureActive;
 
     public FrameQueue Frames { get; } = new();
     public SizeInt32 Taille { get; private set; }
@@ -27,17 +29,34 @@ public sealed class CaptureEngine(MonitorInfo ecran) : IDisposable
 
     public void Demarrer()
     {
-        _device = D3DHelper.CreerDeviceWinRT();
-        var item = CaptureItemFactory.DepuisEcran(ecran.Handle);
-        Taille = item.Size;
-        _pool = Direct3D11CaptureFramePool.CreateFreeThreaded(
-            _device, DirectXPixelFormat.B8G8R8A8UIntNormalized, 2, item.Size);
-        _pool.FrameArrived += SurFrame;
-        item.Closed += (_, _) => CaptureInterrompue?.Invoke(); // écran débranché
-        _session = _pool.CreateCaptureSession(item);
-        _session.IsCursorCaptureEnabled = true;
-        DesactiverBordure(_session);
-        _session.StartCapture();
+        try
+        {
+            _device = D3DHelper.CreerDeviceWinRT();
+            _item = CaptureItemFactory.DepuisEcran(ecran.Handle);
+            Taille = _item.Size;
+            _pool = Direct3D11CaptureFramePool.CreateFreeThreaded(
+                _device, DirectXPixelFormat.B8G8R8A8UIntNormalized, 2, _item.Size);
+            _pool.FrameArrived += SurFrame;
+            _item.Closed += SurCibleFermee;
+            _session = _pool.CreateCaptureSession(_item);
+            _session.IsCursorCaptureEnabled = true;
+            DesactiverBordure(_session);
+            Volatile.Write(ref _captureActive, 1);
+            _session.StartCapture();
+        }
+        catch
+        {
+            Arreter();
+            throw;
+        }
+    }
+
+    private void SurCibleFermee(GraphicsCaptureItem _, object? __)
+    {
+        // Un événement déjà mis en file par une ancienne session ne doit pas
+        // interrompre le pipeline qui vient de la remplacer.
+        if (Volatile.Read(ref _captureActive) == 1)
+            CaptureInterrompue?.Invoke();
     }
 
     /// Retire le contour coloré que Windows dessine autour de l'écran capturé.
@@ -75,8 +94,12 @@ public sealed class CaptureEngine(MonitorInfo ecran) : IDisposable
 
     public void Arreter()
     {
+        Volatile.Write(ref _captureActive, 0);
+        if (_item is not null) _item.Closed -= SurCibleFermee;
         _session?.Dispose(); _session = null;
         if (_pool is not null) { _pool.FrameArrived -= SurFrame; _pool.Dispose(); _pool = null; }
+        _item = null;
+        _device = null;
         Frames.Terminer();
     }
 

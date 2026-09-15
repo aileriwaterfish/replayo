@@ -10,26 +10,44 @@ namespace Replayo.Audio;
 public sealed class AudioEngine : IDisposable
 {
     private static readonly WaveFormat FormatCible = WaveFormat.CreateIeeeFloatWaveFormat(48000, 2);
-    private readonly List<IWaveIn> _captures = new();
+    private sealed record Entree(IWaveIn Capture, ISampleProvider Source, string Nom);
+
+    private readonly List<Entree> _entrees = new();
     private readonly MixingSampleProvider _mixeur = new(FormatCible) { ReadFully = true };
     private readonly object _verrou = new();
 
-    public bool Actif => _captures.Count > 0;
+    public bool Actif { get { lock (_verrou) return _entrees.Count > 0; } }
 
     public static AudioEngine? CreerSiActive(ReplayoConfig cfg)
         => cfg.AudioSysteme || cfg.AudioMicro ? new AudioEngine(cfg.AudioSysteme, cfg.AudioMicro) : null;
 
     public AudioEngine(bool systeme, bool micro)
     {
-        if (systeme) Brancher(new WasapiLoopbackCapture());
+        if (systeme) EssayerBrancher(() => new WasapiLoopbackCapture(), "son système");
         if (micro)
+            EssayerBrancher(() => new WasapiCapture(), "micro"); // périphérique d'entrée par défaut
+    }
+
+    /// Une source audio est facultative : un périphérique absent ou un format
+    /// inattendu ne doit jamais empêcher la capture vidéo de démarrer.
+    internal bool EssayerBrancher(Func<IWaveIn> creerCapture, string nom)
+    {
+        IWaveIn? capture = null;
+        try
         {
-            try { Brancher(new WasapiCapture()); } // périphérique d'entrée par défaut
-            catch { /* pas de micro branché : on continue sans, jamais de crash */ }
+            capture = creerCapture();
+            Brancher(capture, nom);
+            return true;
+        }
+        catch (Exception e)
+        {
+            try { capture?.Dispose(); } catch { /* périphérique déjà invalide */ }
+            Journal.Ecrire($"[audio] {nom} indisponible : {e.Message}");
+            return false;
         }
     }
 
-    private void Brancher(IWaveIn capture)
+    private void Brancher(IWaveIn capture, string nom)
     {
         var tampon = new BufferedWaveProvider(capture.WaveFormat)
         {
@@ -37,17 +55,64 @@ public sealed class AudioEngine : IDisposable
             BufferDuration = TimeSpan.FromSeconds(2),
         };
         capture.DataAvailable += (_, e) => tampon.AddSamples(e.Buffer, 0, e.BytesRecorded);
-        ISampleProvider source = tampon.ToSampleProvider();
-        if (capture.WaveFormat.SampleRate != 48000)
-            source = new WdlResamplingSampleProvider(source, 48000);
-        if (source.WaveFormat.Channels == 1)
-            source = new MonoToStereoSampleProvider(source);
-        lock (_verrou) _mixeur.AddMixerInput(source);
-        _captures.Add(capture);
+        var source = Normaliser(tampon.ToSampleProvider());
+        lock (_verrou)
+        {
+            _mixeur.AddMixerInput(source);
+            _entrees.Add(new(capture, source, nom));
+        }
     }
 
-    public void Demarrer() { foreach (var c in _captures) c.StartRecording(); }
-    public void Arreter() { foreach (var c in _captures) c.StopRecording(); }
+    /// Ramène toute source au contrat exact exigé par MixingSampleProvider :
+    /// IEEE float, 48 kHz, stéréo. Pour une source multicanal, les canaux gauche
+    /// et droit sont les deux premiers ; les autres sont ignorés.
+    internal static ISampleProvider Normaliser(ISampleProvider source)
+    {
+        source = source.WaveFormat.Channels switch
+        {
+            1 => new MonoToStereoSampleProvider(source),
+            2 => source,
+            > 2 => new DeuxPremiersCanauxSampleProvider(source),
+            _ => throw new ArgumentException("La source audio ne contient aucun canal."),
+        };
+        if (source.WaveFormat.SampleRate != FormatCible.SampleRate)
+            source = new WdlResamplingSampleProvider(source, FormatCible.SampleRate);
+        return source;
+    }
+
+    public void Demarrer()
+    {
+        Entree[] entrees;
+        lock (_verrou) entrees = _entrees.ToArray();
+        foreach (var entree in entrees)
+        {
+            try { entree.Capture.StartRecording(); }
+            catch (Exception e)
+            {
+                RetirerEtNettoyer(entree);
+                Journal.Ecrire($"[audio] {entree.Nom} non démarré : {e.Message}");
+            }
+        }
+    }
+
+    public void Arreter()
+    {
+        Entree[] entrees;
+        lock (_verrou) entrees = _entrees.ToArray();
+        foreach (var entree in entrees)
+            try { entree.Capture.StopRecording(); }
+            catch (Exception e) { Journal.Ecrire($"[audio] arrêt {entree.Nom} : {e.Message}"); }
+    }
+
+    private void RetirerEtNettoyer(Entree entree)
+    {
+        lock (_verrou)
+        {
+            _mixeur.RemoveMixerInput(entree.Source);
+            _entrees.Remove(entree);
+        }
+        try { entree.Capture.Dispose(); } catch { /* périphérique déjà invalide */ }
+    }
 
     /// Lit tout le PCM disponible, converti en 16 bits. Appelé par l'encodeur à son rythme.
     public byte[] LirePcmDisponible(int maxOctets = 48000 * 2 * 2) // ~500 ms
@@ -64,5 +129,45 @@ public sealed class AudioEngine : IDisposable
         return pcm;
     }
 
-    public void Dispose() { Arreter(); foreach (var c in _captures) c.Dispose(); }
+    public void Dispose()
+    {
+        Arreter();
+        Entree[] entrees;
+        lock (_verrou)
+        {
+            entrees = _entrees.ToArray();
+            _mixeur.RemoveAllMixerInputs();
+            _entrees.Clear();
+        }
+        foreach (var entree in entrees)
+            try { entree.Capture.Dispose(); } catch { /* périphérique déjà invalide */ }
+    }
+
+    private sealed class DeuxPremiersCanauxSampleProvider(ISampleProvider source) : ISampleProvider
+    {
+        private readonly int _canauxEntree = source.WaveFormat.Channels;
+        private float[] _tamponEntree = Array.Empty<float>();
+
+        public WaveFormat WaveFormat { get; } =
+            WaveFormat.CreateIeeeFloatWaveFormat(source.WaveFormat.SampleRate, 2);
+
+        public int Read(float[] buffer, int offset, int count)
+        {
+            var tramesDemandees = count / 2;
+            var echantillonsDemandes = tramesDemandees * _canauxEntree;
+            if (_tamponEntree.Length < echantillonsDemandes)
+                _tamponEntree = new float[echantillonsDemandes];
+
+            var lus = source.Read(_tamponEntree, 0, echantillonsDemandes);
+            var tramesLues = lus / _canauxEntree;
+            for (var trame = 0; trame < tramesLues; trame++)
+            {
+                var entree = trame * _canauxEntree;
+                var sortie = offset + trame * 2;
+                buffer[sortie] = _tamponEntree[entree];
+                buffer[sortie + 1] = _tamponEntree[entree + 1];
+            }
+            return tramesLues * 2;
+        }
+    }
 }
