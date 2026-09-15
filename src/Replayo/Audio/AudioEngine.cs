@@ -19,7 +19,13 @@ public sealed class AudioEngine : IDisposable
     public bool Actif { get { lock (_verrou) return _entrees.Count > 0; } }
 
     public static AudioEngine? CreerSiActive(ReplayoConfig cfg)
-        => cfg.AudioSysteme || cfg.AudioMicro ? new AudioEngine(cfg.AudioSysteme, cfg.AudioMicro) : null;
+    {
+        if (!cfg.AudioSysteme && !cfg.AudioMicro) return null;
+        var moteur = new AudioEngine(cfg.AudioSysteme, cfg.AudioMicro);
+        if (moteur.Actif) return moteur;
+        moteur.Dispose();
+        return null;
+    }
 
     public AudioEngine(bool systeme, bool micro)
     {

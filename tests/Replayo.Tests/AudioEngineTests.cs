@@ -1,10 +1,25 @@
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using Replayo.Audio;
+using Replayo.Core;
 
 [Collection("Journal")]
-public class AudioEngineTests
+public class AudioEngineTests : IDisposable
 {
+    private readonly string _dossierJournal;
+
+    public AudioEngineTests()
+    {
+        _dossierJournal = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Journal.CheminForce = Path.Combine(_dossierJournal, "replayo.log");
+    }
+
+    public void Dispose()
+    {
+        Journal.CheminForce = null;
+        try { Directory.Delete(_dossierJournal, recursive: true); } catch { }
+    }
+
     [Fact]
     public void Normaliser_Mono48k_DupliqueChaqueEchantillon()
     {

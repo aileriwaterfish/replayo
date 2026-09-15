@@ -58,6 +58,7 @@ public sealed class RecorderService : IDisposable
             _cts = new CancellationTokenSource();
             _audio = AudioEngine.CreerSiActive(cfg);
             _audio?.Demarrer();
+            if (_audio is { Actif: false }) { _audio.Dispose(); _audio = null; }
             // Mix audio encodé en continu à côté du buffer (les segments sont vidéo seule) ;
             // l'audio est remis au moment du clip, découpé par horloge de capture.
             if (_audio is not null)
@@ -211,7 +212,8 @@ public sealed class RecorderService : IDisposable
                     versionTraitee = versionCible;
                     if (!succes)
                     {
-                        Notification?.Invoke("Capture non relancée après 5 essais — redémarre Replayo.");
+                        if (_captureSouhaitee)
+                            Notification?.Invoke("Capture non relancée après 5 essais — redémarre Replayo.");
                         break;
                     }
 
