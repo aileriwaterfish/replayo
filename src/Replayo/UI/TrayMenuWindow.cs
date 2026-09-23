@@ -17,7 +17,7 @@ public sealed class TrayMenuWindow : Window
 {
     private bool _fermetureDemandee; // Close() pendant la fermeture jette InvalidOperationException
 
-    public TrayMenuWindow(RecorderService recorder, Action sauvegarderClip, Action ouvrirDossier, Action ouvrirReglages, Action quitter)
+    public TrayMenuWindow(RecorderService recorder, Action sauvegarderClip, Action basculerEnregistrement, Action ouvrirDossier, Action ouvrirReglages, Action quitter)
     {
         var cfg = new ConfigStore().Charger();
 
@@ -48,7 +48,8 @@ public sealed class TrayMenuWindow : Window
         titres.Children.Add(new TextBlock { Text = "Replayo", FontSize = 13, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White });
         titres.Children.Add(new TextBlock
         {
-            Text = recorder.EnCapture ? $"● Replay actif — {cfg.DureeBufferSecondes} s en mémoire" : "Replay arrêté",
+            Text = recorder.EnEnregistrement ? "● REC en cours" :
+                recorder.EnCapture ? $"● Replay actif — {cfg.DureeBufferSecondes} s en mémoire" : "Replay arrêté",
             FontSize = 11,
             Foreground = recorder.EnCapture ? Theme.AccentSurvol : Theme.TexteSecondaire,
             Margin = new Thickness(0, 1, 0, 0),
@@ -75,6 +76,8 @@ public sealed class TrayMenuWindow : Window
             Foreground = Theme.TexteSecondaire, VerticalAlignment = VerticalAlignment.Center,
         };
         pile.Children.Add(Item("Sauvegarder le clip", raccourci, sauvegarderClip));
+        pile.Children.Add(Item(recorder.EnEnregistrement ? "Arrêter et sauvegarder le REC" : "Démarrer un REC",
+            null, basculerEnregistrement));
         pile.Children.Add(Item("Ouvrir le dossier des clips", null, ouvrirDossier));
         pile.Children.Add(Item("Réglages…", null, ouvrirReglages));
         pile.Children.Add(Separateur());

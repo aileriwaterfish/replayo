@@ -36,7 +36,7 @@ public sealed class AudioMixRecorder : IDisposable
         {
             Directory.CreateDirectory(Path.GetDirectoryName(chemin)!);
             var psi = new ProcessStartInfo(AppPaths.FfmpegExe,
-                $"-hide_banner -loglevel error -f s16le -ar 48000 -ac 2 -i pipe:0 -c:a aac -b:a 192k -f adts -y \"{chemin}\"")
+                $"-hide_banner -loglevel error -f s16le -ar 48000 -ac 2 -i pipe:0 -c:a aac -b:a 192k -f adts -flush_packets 1 -y \"{chemin}\"")
             { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true };
             return new AudioMixRecorder(audio, Process.Start(psi)!, chemin);
         }

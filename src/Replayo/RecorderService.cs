@@ -13,6 +13,7 @@ namespace Replayo;
 public sealed class RecorderService : IDisposable
 {
     private sealed record Pipeline(CaptureEngine Capture, SegmentEncoder Enc, SegmentRing Ring, string? Suffixe);
+    private sealed record Enregistrement(DateTime DebutMur, TimeSpan DebutCapture, string Racine, string Format);
 
     private readonly List<Pipeline> _pipelines = new();
     // Référence directe au pipeline principal : les horloges sont lues depuis le timer
@@ -30,8 +31,14 @@ public sealed class RecorderService : IDisposable
     private volatile bool _captureSouhaitee;
     private bool _reactionsSystemeBranchees;
     private ReplayoConfig _cfg = new();
+    private Enregistrement? _enregistrement;
+    private readonly string _dossierBuffer;
+
+    public RecorderService(string? dossierBuffer = null)
+        => _dossierBuffer = dossierBuffer ?? AppPaths.DossierBuffer;
 
     public bool EnCapture { get; private set; }
+    public bool EnEnregistrement => Volatile.Read(ref _enregistrement) is not null;
     public bool EncodageMateriel => _pipelines.Count == 0 || _pipelines.All(p => p.Enc.EncodageMateriel);
     public event Action<string>? Notification;
 
@@ -62,11 +69,11 @@ public sealed class RecorderService : IDisposable
             // Mix audio encodé en continu à côté du buffer (les segments sont vidéo seule) ;
             // l'audio est remis au moment du clip, découpé par horloge de capture.
             if (_audio is not null)
-                _audioMix = AudioMixRecorder.Demarrer(_audio, Path.Combine(AppPaths.DossierBuffer, "audio_mix.aac"));
+                _audioMix = AudioMixRecorder.Demarrer(_audio, Path.Combine(_dossierBuffer, "audio_mix.aac"));
 
             foreach (var (ecran, i) in sources.Select((e, i) => (e, i)))
             {
-                var ring = new SegmentRing(Path.Combine(AppPaths.DossierBuffer, $"ecran{ecran.Index}"), cfg.DureeBufferSecondes);
+                var ring = new SegmentRing(Path.Combine(_dossierBuffer, $"ecran{ecran.Index}"), cfg.DureeBufferSecondes);
                 ring.PurgerAuDemarrage();
                 var capture = new CaptureEngine(ecran);
                 capture.CaptureInterrompue += () =>
@@ -88,7 +95,7 @@ public sealed class RecorderService : IDisposable
             {
                 try
                 {
-                    var libre = new DriveInfo(Path.GetPathRoot(AppPaths.DossierBuffer)!).AvailableFreeSpace;
+                    var libre = new DriveInfo(Path.GetPathRoot(_dossierBuffer)!).AvailableFreeSpace;
                     if (libre < 2L * 1024 * 1024 * 1024)
                     {
                         Arreter();
@@ -126,7 +133,11 @@ public sealed class RecorderService : IDisposable
     {
         _captureSouhaitee = false;
         _verrouClips.Wait();
-        try { NettoyerCapture(); }
+        try
+        {
+            FinaliserAvantArret();
+            NettoyerCapture();
+        }
         finally { _verrouClips.Release(); }
     }
 
@@ -148,8 +159,119 @@ public sealed class RecorderService : IDisposable
     {
         _captureSouhaitee = true;
         _verrouClips.Wait();
-        try { NettoyerCapture(); DemarrerInterne(cfg); }
+        try { FinaliserAvantArret(); NettoyerCapture(); DemarrerInterne(cfg); }
         finally { _verrouClips.Release(); }
+    }
+
+    /// Démarre un REC manuel sans interrompre les clips rétroactifs.
+    public bool DemarrerEnregistrement()
+    {
+        _verrouClips.Wait();
+        try
+        {
+            if (!EnCapture || _principal is null || _enregistrement is not null) return false;
+            var debut = _principal.Capture.HorlogeLive;
+            var racine = string.IsNullOrWhiteSpace(_cfg.DossierSortie) ? AppPaths.DossierSortieDefaut : _cfg.DossierSortie;
+            foreach (var pipeline in _pipelines) pipeline.Ring.ProtegerDepuis(debut);
+            _enregistrement = new Enregistrement(DateTime.Now, debut, racine, _cfg.FormatSortie);
+            Journal.Ecrire($"[rec] démarré à {debut.TotalSeconds:F3} s");
+            Notification?.Invoke("REC démarré — arrête-le depuis le menu Replayo.");
+            return true;
+        }
+        finally { _verrouClips.Release(); }
+    }
+
+    public async Task<IReadOnlyList<string>> ArreterEnregistrementAsync()
+    {
+        await _verrouClips.WaitAsync().ConfigureAwait(false);
+        try { return await FinaliserEnregistrementAsync().ConfigureAwait(false); }
+        finally { _verrouClips.Release(); }
+    }
+
+    private void FinaliserAvantArret()
+    {
+        if (_enregistrement is null) return;
+        try { Task.Run(FinaliserEnregistrementAsync).GetAwaiter().GetResult(); }
+        catch (Exception ex)
+        {
+            Journal.Ecrire($"[rec] finalisation avant arrêt : {ex}");
+            Notification?.Invoke("REC non sauvegardé — consulte replayo.log.");
+        }
+    }
+
+    private async Task<IReadOnlyList<string>> FinaliserEnregistrementAsync()
+    {
+        var session = _enregistrement;
+        if (session is null) return Array.Empty<string>();
+        _enregistrement = null;
+        var sorties = new List<string>();
+        var audioManquant = false;
+        try
+        {
+            // Le segment ouvert doit être finalisé, sinon la fin du REC manquerait.
+            try
+            {
+                await Task.WhenAll(_pipelines.Select(p => p.Enc.TerminerSegmentAsync()))
+                    .WaitAsync(TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+            }
+            catch (TimeoutException ex) { Journal.Ecrire($"[rec] segment final incomplet : {ex.Message}"); }
+
+            foreach (var (pipeline, index) in _pipelines.Select((p, i) => (p, i)))
+            {
+                using var location = pipeline.Ring.LouerIntervalle(session.DebutCapture, TimeSpan.MaxValue);
+                pipeline.Ring.NePlusProteger();
+                if (location.Segments.Count == 0) continue;
+                var suffixe = pipeline.Suffixe is null ? "" : $"_{pipeline.Suffixe}";
+                var nom = $"Replayo_REC_{session.DebutMur:yyyy-MM-dd_HH\\hmm\\mss}{suffixe}.{session.Format}";
+                var chemin = ClipService.CheminDisponible(Path.Combine(
+                    session.Racine, "Enregistrements", session.DebutMur.ToString("yyyy-MM"), nom));
+                var audio = index == 0 ? CheminAudioMix : null;
+                var sauvegarde = false;
+                if (audio is not null)
+                {
+                    // ffmpeg écrit encore l'AAC en parallèle. Sur un REC très court,
+                    // le fichier peut ne pas être lisible à la première tentative.
+                    for (var essai = 0; essai < 4 && !sauvegarde; essai++)
+                    {
+                        if (essai > 0) await Task.Delay(500).ConfigureAwait(false);
+                        if (File.Exists(audio) && new FileInfo(audio).Length > 1024)
+                            sauvegarde = await ClipService.AssemblerAsync(location.Segments, chemin, audio,
+                                location.DebutPremier.TotalSeconds).ConfigureAwait(false);
+                    }
+                }
+                if (!sauvegarde)
+                {
+                    if (audio is not null)
+                    {
+                        Journal.Ecrire("[rec] audio indisponible, sauvegarde vidéo seule");
+                        audioManquant = true;
+                    }
+                    sauvegarde = await ClipService.AssemblerAsync(location.Segments, chemin)
+                        .ConfigureAwait(false);
+                }
+                if (sauvegarde)
+                    sorties.Add(chemin);
+            }
+
+            Journal.Ecrire(sorties.Count == 0
+                ? "[rec] aucun segment sauvegardé"
+                : $"[rec] sauvegardé : {string.Join(" ; ", sorties)}");
+            Notification?.Invoke(sorties.Count == 0
+                ? "REC vide — aucun segment vidéo disponible."
+                : audioManquant ? $"REC sauvegardé sans son : {Path.GetFileName(sorties[0])}"
+                : $"REC sauvegardé : {Path.GetFileName(sorties[0])}");
+            return sorties;
+        }
+        catch (Exception ex)
+        {
+            Journal.Ecrire($"[rec] erreur : {ex}");
+            Notification?.Invoke("REC non sauvegardé — consulte replayo.log.");
+            throw;
+        }
+        finally
+        {
+            foreach (var pipeline in _pipelines) pipeline.Ring.NePlusProteger();
+        }
     }
 
     /// Réveil du poste et changement de configuration d'écran invalident la session de

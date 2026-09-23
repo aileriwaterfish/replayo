@@ -26,6 +26,7 @@ dans la **zone de notification** (system tray).
 
 - **Alt+F10** (reconfigurable) → clip des N dernières secondes, rangé + son de confirmation
 - **Icône tray** → démarrer/arrêter la capture, ouvrir le dossier des clips, Réglages, Quitter
+- **Démarrer un REC** dans le menu de l'icône → enregistrement continu ; **Arrêter et sauvegarder le REC** crée un MP4/MKV dans `Vidéos\Replayo\Enregistrements\AAAA-MM\` (ou le dossier de sortie choisi). Le replay et ses clips restent disponibles pendant le REC. Un arrêt ou un redémarrage de la capture sauvegarde aussi le REC en cours.
 - **Fermer une fenêtre** = retour au tray (la capture continue) ; **Quitter** = uniquement via le tray
 - **Réglages** : durée, qualité, format, écran(s), audio (système/micro), raccourci,
   nom auto ou manuel, dossier de sortie, démarrage avec Windows

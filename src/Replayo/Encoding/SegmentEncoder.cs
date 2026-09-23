@@ -25,8 +25,24 @@ public sealed class SegmentEncoder(FrameQueue frames, SegmentRing ring,
                                    QualityPreset preset, SizeInt32 tailleEcran)
 {
     private static readonly TimeSpan DureeSegment = TimeSpan.FromSeconds(10);
+    private readonly object _verrouCoupure = new();
+    private CancellationTokenSource? _coupureEnCours;
+    private TaskCompletionSource<bool>? _attenteCoupure;
     public bool EncodageMateriel { get; private set; } = true;
     public TimeSpan HorlogeCapture { get; private set; }
+
+    /// Termine le segment en cours sans arrêter le buffer. Sert à inclure les
+    /// dernières secondes quand l'utilisateur arrête un enregistrement.
+    public Task TerminerSegmentAsync()
+    {
+        lock (_verrouCoupure)
+        {
+            if (_coupureEnCours is null) return Task.CompletedTask;
+            _attenteCoupure ??= new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _coupureEnCours.Cancel();
+            return _attenteCoupure.Task;
+        }
+    }
 
     public async Task BoucleEncodageAsync(CancellationToken ct)
     {
@@ -38,6 +54,27 @@ public sealed class SegmentEncoder(FrameQueue frames, SegmentRing ring,
     }
 
     private async Task EncoderUnSegmentAsync(CancellationToken ct)
+    {
+        using var coupure = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        lock (_verrouCoupure) _coupureEnCours = coupure;
+        try
+        {
+            await EncoderUnSegmentInterneAsync(ct, coupure);
+        }
+        finally
+        {
+            TaskCompletionSource<bool>? attente;
+            lock (_verrouCoupure)
+            {
+                _coupureEnCours = null;
+                attente = _attenteCoupure;
+                _attenteCoupure = null;
+            }
+            attente?.TrySetResult(true);
+        }
+    }
+
+    private async Task EncoderUnSegmentInterneAsync(CancellationToken ct, CancellationTokenSource coupure)
     {
         int largeur = preset.Largeur ?? tailleEcran.Width;
         int hauteur = preset.Hauteur ?? tailleEcran.Height;
@@ -57,8 +94,8 @@ public sealed class SegmentEncoder(FrameQueue frames, SegmentRing ring,
             var deferral = e.Request.GetDeferral();
             try
             {
-                if (fini) { e.Request.Sample = null; return; }
-                var frame = frames.PrendreAsync(ct).AsTask().GetAwaiter().GetResult();
+                if (fini || coupure.IsCancellationRequested) { e.Request.Sample = null; return; }
+                var frame = frames.PrendreAsync(coupure.Token).AsTask().GetAwaiter().GetResult();
                 if (origineSegment is null) { origineSegment = frame.Horodatage; originePourRing = frame.Horodatage; }
                 var tsLocal = frame.Horodatage - origineSegment.Value;
                 if (tsLocal >= DureeSegment) { fini = true; e.Request.Sample = null; return; }
@@ -79,21 +116,23 @@ public sealed class SegmentEncoder(FrameQueue frames, SegmentRing ring,
         profil.Audio = null;
 
         var chemin = ring.ProchainCheminSegment();
-        using var fichier = new FileStream(chemin, FileMode.Create, FileAccess.ReadWrite);
-        using var flux = fichier.AsRandomAccessStream();
-
-        var transcodeur = new MediaTranscoder { HardwareAccelerationEnabled = true };
-        var prep = await transcodeur.PrepareMediaStreamSourceTranscodeAsync(mss, flux, profil);
-        if (!prep.CanTranscode)
+        using (var fichier = new FileStream(chemin, FileMode.Create, FileAccess.ReadWrite))
+        using (var flux = fichier.AsRandomAccessStream())
         {
-            // Repli logiciel : on retente sans accélération matérielle (avertissement au runner).
-            EncodageMateriel = false;
-            transcodeur.HardwareAccelerationEnabled = false;
-            prep = await transcodeur.PrepareMediaStreamSourceTranscodeAsync(mss, flux, profil);
-            if (!prep.CanTranscode) throw new InvalidOperationException("Aucun encodeur H.264 disponible.");
+            var transcodeur = new MediaTranscoder { HardwareAccelerationEnabled = true };
+            var prep = await transcodeur.PrepareMediaStreamSourceTranscodeAsync(mss, flux, profil);
+            if (!prep.CanTranscode)
+            {
+                // Repli logiciel : on retente sans accélération matérielle (avertissement au runner).
+                EncodageMateriel = false;
+                transcodeur.HardwareAccelerationEnabled = false;
+                prep = await transcodeur.PrepareMediaStreamSourceTranscodeAsync(mss, flux, profil);
+                if (!prep.CanTranscode) throw new InvalidOperationException("Aucun encodeur H.264 disponible.");
+            }
+            await prep.TranscodeAsync().AsTask(ct);
         }
-        await prep.TranscodeAsync().AsTask(ct);
 
-        ring.Ajouter(chemin, originePourRing, HorlogeCapture);
+        if (origineSegment is not null) ring.Ajouter(chemin, originePourRing, HorlogeCapture);
+        else File.Delete(chemin);
     }
 }

@@ -141,4 +141,31 @@ public class SegmentRingTests
         premiere.Dispose();
         Assert.False(File.Exists(ancien));
     }
+
+    [Fact]
+    public void Enregistrement_ProtegeLesSegmentsMalgreLaFenetreLolPuisLesLibere()
+    {
+        var ring = NouvelAnneau(dureeMax: 20);
+        ring.ProtegerDepuis(TimeSpan.FromSeconds(5));
+        var chemins = new List<string>();
+        for (int i = 0; i < 7; i++)
+        {
+            var chemin = ring.ProchainCheminSegment();
+            File.WriteAllText(chemin, "x");
+            chemins.Add(chemin);
+            ring.Ajouter(chemin, TimeSpan.FromSeconds(i * 10), TimeSpan.FromSeconds(i * 10 + 10));
+            if (i == 3) ring.DureeMaxSecondes = 120;
+            if (i == 5) ring.DureeMaxSecondes = 20;
+        }
+
+        Assert.All(chemins, chemin => Assert.True(File.Exists(chemin)));
+        using (var location = ring.LouerIntervalle(TimeSpan.FromSeconds(5), TimeSpan.MaxValue))
+        {
+            ring.NePlusProteger();
+            Assert.Equal(7, location.Segments.Count);
+            Assert.True(File.Exists(chemins[0]));
+        }
+        Assert.False(File.Exists(chemins[0]));
+        Assert.True(File.Exists(chemins[6]));
+    }
 }

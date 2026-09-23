@@ -10,6 +10,8 @@ public sealed class SegmentRing(string dossierBuffer, int dureeMaxSecondes)
     private readonly Dictionary<string, int> _locations = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _suppressionsDifferees = new(StringComparer.OrdinalIgnoreCase);
     private int _compteur;
+    private TimeSpan? _debutProtege;
+    private TimeSpan _derniereFin;
 
     /// Fige la liste des segments pendant qu'un ffmpeg les lit. Sans cette location,
     /// l'anneau pouvait supprimer le premier fichier entre la sélection et l'ouverture
@@ -61,6 +63,8 @@ public sealed class SegmentRing(string dossierBuffer, int dureeMaxSecondes)
                 }
             }
             _entrees.Clear();
+            _debutProtege = null;
+            _derniereFin = TimeSpan.Zero;
             _compteur = Math.Max(_compteur, indexMaxSurvivant);
         }
     }
@@ -76,17 +80,40 @@ public sealed class SegmentRing(string dossierBuffer, int dureeMaxSecondes)
         lock (_verrou)
         {
             _entrees.Add(new(chemin, debut, fin));
-            // Supprime tout segment entièrement antérieur à la fenêtre maximale.
-            // (La fenêtre d'un clip se termine à l'horloge courante, jamais avant la fin
-            // du dernier segment : aucun segment sous cette limite ne peut être requis.)
-            var limite = fin - TimeSpan.FromSeconds(DureeMaxSecondes);
-            for (int i = _entrees.Count - 1; i >= 0; i--)
+            _derniereFin = fin;
+            PurgerAnciens(fin);
+        }
+    }
+
+    /// Conserve les segments nécessaires à un enregistrement manuel, même si le
+    /// mode LoL modifie entre-temps la durée normale du buffer.
+    public void ProtegerDepuis(TimeSpan debut)
+    {
+        lock (_verrou) _debutProtege = debut;
+    }
+
+    public void NePlusProteger()
+    {
+        lock (_verrou)
+        {
+            _debutProtege = null;
+            PurgerAnciens(_derniereFin);
+        }
+    }
+
+    private void PurgerAnciens(TimeSpan fin)
+    {
+        // Supprime tout segment entièrement antérieur à la fenêtre maximale.
+        // (La fenêtre d'un clip se termine à l'horloge courante, jamais avant la fin
+        // du dernier segment : aucun segment sous cette limite ne peut être requis.)
+        var limite = fin - TimeSpan.FromSeconds(DureeMaxSecondes);
+        if (_debutProtege is { } debut) limite = TimeSpan.FromTicks(Math.Min(limite.Ticks, debut.Ticks));
+        for (int i = _entrees.Count - 1; i >= 0; i--)
+        {
+            if (_entrees[i].Fin < limite)
             {
-                if (_entrees[i].Fin < limite)
-                {
-                    SupprimerOuDifferer(_entrees[i].Chemin);
-                    _entrees.RemoveAt(i);
-                }
+                SupprimerOuDifferer(_entrees[i].Chemin);
+                _entrees.RemoveAt(i);
             }
         }
     }

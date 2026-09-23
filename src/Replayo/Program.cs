@@ -48,7 +48,9 @@ public static class Program
         }
 
         Action sauvegarderClip = () => { }; // assignée juste après (dépendance croisée avec le tray)
-        using var tray = new TrayIcon(recorder, () => sauvegarderClip(), OuvrirReglages, () => app.Shutdown());
+        Action basculerEnregistrement = () => { };
+        using var tray = new TrayIcon(recorder, () => sauvegarderClip(), () => basculerEnregistrement(),
+            OuvrirReglages, () => app.Shutdown());
         using var hotkey = new HotkeyManager();
 
         sauvegarderClip = () => _ = Task.Run(async () =>
@@ -76,6 +78,18 @@ public static class Program
                 tray.Notifier("Clip non sauvegardé — consulte replayo.log.");
             }
         });
+
+        basculerEnregistrement = () =>
+        {
+            if (recorder.EnEnregistrement)
+                _ = Task.Run(async () =>
+                {
+                    try { await recorder.ArreterEnregistrementAsync(); }
+                    catch (Exception ex) { Journal.Ecrire($"[rec] arrêt : {ex}"); }
+                });
+            else if (!recorder.DemarrerEnregistrement())
+                tray.Notifier("Démarre d'abord le replay avant de lancer un REC.");
+        };
 
         void BrancherRaccourci(ReplayoConfig cfg)
         {
