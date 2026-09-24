@@ -12,15 +12,17 @@ public sealed class TrayIcon : IDisposable
     private readonly RecorderService _recorder;
     private readonly Action _sauvegarderClip;
     private readonly Action _basculerEnregistrement;
+    private readonly Action _verifierMisesAJour;
     private readonly Action _ouvrirReglages;
     private readonly Action _quitter;
     private TrayMenuWindow? _menu;
 
-    public TrayIcon(RecorderService recorder, Action sauvegarderClip, Action basculerEnregistrement, Action ouvrirReglages, Action quitter)
+    public TrayIcon(RecorderService recorder, Action sauvegarderClip, Action basculerEnregistrement, Action verifierMisesAJour, Action ouvrirReglages, Action quitter)
     {
         _recorder = recorder;
         _sauvegarderClip = sauvegarderClip;
         _basculerEnregistrement = basculerEnregistrement;
+        _verifierMisesAJour = verifierMisesAJour;
         _ouvrirReglages = ouvrirReglages;
         _quitter = quitter;
 
@@ -42,7 +44,8 @@ public sealed class TrayIcon : IDisposable
     private void OuvrirMenu()
     {
         if (_menu is { IsVisible: true }) { _menu.Close(); return; }
-        _menu = new TrayMenuWindow(_recorder, _sauvegarderClip, _basculerEnregistrement, OuvrirDossier, _ouvrirReglages, _quitter);
+        _menu = new TrayMenuWindow(_recorder, _sauvegarderClip, _basculerEnregistrement, OuvrirDossier,
+            _verifierMisesAJour, _ouvrirReglages, _quitter);
         _menu.Show();
     }
 

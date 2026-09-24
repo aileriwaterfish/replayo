@@ -17,7 +17,7 @@ public sealed class TrayMenuWindow : Window
 {
     private bool _fermetureDemandee; // Close() pendant la fermeture jette InvalidOperationException
 
-    public TrayMenuWindow(RecorderService recorder, Action sauvegarderClip, Action basculerEnregistrement, Action ouvrirDossier, Action ouvrirReglages, Action quitter)
+    public TrayMenuWindow(RecorderService recorder, Action sauvegarderClip, Action basculerEnregistrement, Action ouvrirDossier, Action verifierMisesAJour, Action ouvrirReglages, Action quitter)
     {
         var cfg = new ConfigStore().Charger();
 
@@ -79,6 +79,7 @@ public sealed class TrayMenuWindow : Window
         pile.Children.Add(Item(recorder.EnEnregistrement ? "Arrêter et sauvegarder le REC" : "Démarrer un REC",
             null, basculerEnregistrement));
         pile.Children.Add(Item("Ouvrir le dossier des clips", null, ouvrirDossier));
+        pile.Children.Add(Item("Vérifier les mises à jour…", null, verifierMisesAJour));
         pile.Children.Add(Item("Réglages…", null, ouvrirReglages));
         pile.Children.Add(Separateur());
         pile.Children.Add(Item("Quitter", null, quitter));
