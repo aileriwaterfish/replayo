@@ -19,7 +19,10 @@ internal sealed class UpdateService
     private const string Api = "https://api.github.com/repos/aileriwaterfish/replayo/releases/latest";
     private static readonly HttpClient Http = CreerClient();
     private static readonly string[] Fichiers =
-        ["Replayo.exe", "Replayo.Updater.exe", "ffmpeg.exe", "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico"];
+        ["Replayo.exe", "Replayo.Updater.exe", "ffmpeg.exe",
+         "D3DCompiler_47_cor3.dll", "PenImc_cor3.dll", "PresentationNative_cor3.dll",
+         "vcruntime140_cor3.dll", "wpfgfx_cor3.dll",
+         "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico"];
 
     internal static Version VersionInstallee => typeof(UpdateService).Assembly.GetName().Version ?? new Version(0, 0);
 
@@ -191,7 +194,7 @@ internal sealed class UpdateService
             if (!Fichiers.Contains(entree.FullName, StringComparer.Ordinal) || !vus.Add(entree.FullName))
                 throw new InvalidDataException($"Fichier inattendu dans la mise à jour : {entree.FullName}");
             taille += entree.Length;
-            if (taille > 300_000_000) throw new InvalidDataException("Contenu de mise à jour trop grand.");
+            if (taille > 500_000_000) throw new InvalidDataException("Contenu de mise à jour trop grand.");
             var chemin = Path.Combine(sortie, entree.FullName.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(chemin)!);
             entree.ExtractToFile(chemin);

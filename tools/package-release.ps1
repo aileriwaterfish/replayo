@@ -33,7 +33,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Échec de dotnet publish pour Replayo.Updater.
 Copy-Item -LiteralPath (Join-Path $publicationUpdater 'Replayo.Updater.exe') `
     -Destination (Join-Path $publication 'Replayo.Updater.exe') -Force
 
-foreach ($fichier in @('Replayo.exe', 'Replayo.Updater.exe', 'ffmpeg.exe', 'assets\clip.wav', 'assets\replayo.ico', 'assets\tray.ico')) {
+foreach ($fichier in @('Replayo.exe', 'Replayo.Updater.exe', 'ffmpeg.exe',
+    'D3DCompiler_47_cor3.dll', 'PenImc_cor3.dll', 'PresentationNative_cor3.dll',
+    'vcruntime140_cor3.dll', 'wpfgfx_cor3.dll',
+    'assets\clip.wav', 'assets\replayo.ico', 'assets\tray.ico')) {
     if (-not (Test-Path -LiteralPath (Join-Path $publication $fichier) -PathType Leaf)) {
         throw "Fichier absent du paquet : $fichier"
     }
@@ -44,6 +47,11 @@ Compress-Archive -LiteralPath @(
     (Join-Path $publication 'Replayo.exe'),
     (Join-Path $publication 'Replayo.Updater.exe'),
     (Join-Path $publication 'ffmpeg.exe'),
+    (Join-Path $publication 'D3DCompiler_47_cor3.dll'),
+    (Join-Path $publication 'PenImc_cor3.dll'),
+    (Join-Path $publication 'PresentationNative_cor3.dll'),
+    (Join-Path $publication 'vcruntime140_cor3.dll'),
+    (Join-Path $publication 'wpfgfx_cor3.dll'),
     (Join-Path $publication 'assets')
 ) -DestinationPath $archive -CompressionLevel Optimal
 $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()

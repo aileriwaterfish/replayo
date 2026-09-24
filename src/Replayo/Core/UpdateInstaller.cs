@@ -6,7 +6,10 @@ namespace Replayo.Core;
 internal static class UpdateInstaller
 {
     private static readonly string[] Fichiers =
-        ["Replayo.exe", "Replayo.Updater.exe", "ffmpeg.exe", "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico"];
+        ["Replayo.exe", "Replayo.Updater.exe", "ffmpeg.exe",
+         "D3DCompiler_47_cor3.dll", "PenImc_cor3.dll", "PresentationNative_cor3.dll",
+         "vcruntime140_cor3.dll", "wpfgfx_cor3.dll",
+         "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico"];
 
     internal static int Executer(string dossier, string installation, int pid)
     {

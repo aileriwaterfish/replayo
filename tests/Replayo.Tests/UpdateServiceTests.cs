@@ -5,6 +5,11 @@ namespace Replayo.Tests;
 
 public sealed class UpdateServiceTests
 {
+    private static readonly string[] Fichiers =
+        ["Replayo.exe", "Replayo.Updater.exe", "ffmpeg.exe",
+         "D3DCompiler_47_cor3.dll", "PenImc_cor3.dll", "PresentationNative_cor3.dll",
+         "vcruntime140_cor3.dll", "wpfgfx_cor3.dll",
+         "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico"];
     private const string Release = """
         {"tag_name":"v0.2.0","draft":false,"prerelease":false,"assets":[
           {"name":"Replayo-win-x64.zip","browser_download_url":"https://github.com/aileriwaterfish/replayo/releases/download/v0.2.0/Replayo-win-x64.zip"},
@@ -52,7 +57,7 @@ public sealed class UpdateServiceTests
         {
             var archive = Path.Combine(racine, "release.zip");
             using (var zip = ZipFile.Open(archive, ZipArchiveMode.Create))
-                foreach (var nom in new[] { "Replayo.exe", "Replayo.Updater.exe", "ffmpeg.exe", "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico" })
+                foreach (var nom in Fichiers)
                 {
                     var entree = zip.CreateEntry(nom);
                     using var writer = new StreamWriter(entree.Open());
@@ -82,7 +87,7 @@ public sealed class UpdateServiceTests
         Directory.CreateDirectory(installation);
         try
         {
-            foreach (var nom in new[] { "Replayo.exe", "Replayo.Updater.exe", "ffmpeg.exe", "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico" })
+            foreach (var nom in Fichiers)
             {
                 var chemin = Path.Combine(contenu, nom.Replace('/', Path.DirectorySeparatorChar));
                 Directory.CreateDirectory(Path.GetDirectoryName(chemin)!);
@@ -108,7 +113,7 @@ public sealed class UpdateServiceTests
         Directory.CreateDirectory(installation);
         try
         {
-            foreach (var nom in new[] { "Replayo.exe", "Replayo.Updater.exe", "ffmpeg.exe", "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico" })
+            foreach (var nom in Fichiers)
             {
                 var chemin = Path.Combine(contenu, nom.Replace('/', Path.DirectorySeparatorChar));
                 Directory.CreateDirectory(Path.GetDirectoryName(chemin)!);
