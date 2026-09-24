@@ -28,7 +28,7 @@ dotnet publish $projet --configuration Release --runtime win-x64 --self-containe
     -p:PublishSingleFile=true --output $publication
 if ($LASTEXITCODE -ne 0) { throw 'Échec de dotnet publish.' }
 dotnet publish $projetUpdater --configuration Release --runtime win-x64 --self-contained true `
-    -p:PublishSingleFile=true --output $publicationUpdater
+    -p:PublishSingleFile=true -p:Version=$Version --output $publicationUpdater
 if ($LASTEXITCODE -ne 0) { throw 'Échec de dotnet publish pour Replayo.Updater.' }
 Copy-Item -LiteralPath (Join-Path $publicationUpdater 'Replayo.Updater.exe') `
     -Destination (Join-Path $publication 'Replayo.Updater.exe') -Force

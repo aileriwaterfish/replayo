@@ -5,6 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PlatformTarget>x64</PlatformTarget>
+    <!-- Journal.CheminForce sert uniquement aux tests du projet principal. -->
+    <NoWarn>$(NoWarn);CS0649</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\Replayo\Core\UpdateInstaller.cs" Link="UpdateInstaller.cs" />
