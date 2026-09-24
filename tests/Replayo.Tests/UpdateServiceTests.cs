@@ -19,6 +19,13 @@ public sealed class UpdateServiceTests
     }
 
     [Fact]
+    public void ReleasePrivee_GardeLeModeAuthentifie()
+    {
+        var maj = UpdateService.LireRelease(Release, new Version(0, 1, 0), depotPrive: true);
+        Assert.True(maj?.DepotPrive);
+    }
+
+    [Fact]
     public void VersionIdentique_NEstPasProposee()
         => Assert.Null(UpdateService.LireRelease(Release, new Version(0, 2, 0)));
 

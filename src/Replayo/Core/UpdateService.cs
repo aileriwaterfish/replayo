@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.ComponentModel;
 using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -7,7 +8,8 @@ using System.Text.Json;
 
 namespace Replayo.Core;
 
-internal sealed record MiseAJour(Version Version, Uri Archive, Uri Empreintes);
+internal sealed record MiseAJour(Version Version, Uri Archive, Uri Empreintes, bool DepotPrive = false);
+internal sealed class AccesMiseAJourPriveeException(string message, Exception? cause = null) : Exception(message, cause);
 
 /// Vérifie les Releases GitHub et prépare un paquet validé avant tout arrêt de l'app.
 internal sealed class UpdateService
@@ -34,13 +36,20 @@ internal sealed class UpdateService
         using var attente = CancellationTokenSource.CreateLinkedTokenSource(ct);
         attente.CancelAfter(TimeSpan.FromSeconds(15));
         using var reponse = await Http.GetAsync(Api, attente.Token).ConfigureAwait(false);
-        if (reponse.StatusCode == System.Net.HttpStatusCode.NotFound) return null; // aucune Release encore
+        if (reponse.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // Le dépôt est privé : GitHub répond 404 sans authentification.
+            // gh utilise la connexion locale de l'utilisateur, jamais un jeton embarqué.
+            var prive = await ExecuterGhAsync(["api", "repos/aileriwaterfish/replayo/releases/latest"],
+                TimeSpan.FromSeconds(15), ct).ConfigureAwait(false);
+            return LireRelease(prive, VersionInstallee, depotPrive: true);
+        }
         reponse.EnsureSuccessStatusCode();
         var json = await reponse.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         return LireRelease(json, VersionInstallee);
     }
 
-    internal static MiseAJour? LireRelease(string json, Version versionInstallee)
+    internal static MiseAJour? LireRelease(string json, Version versionInstallee, bool depotPrive = false)
     {
         using var doc = JsonDocument.Parse(json);
         var release = doc.RootElement;
@@ -61,7 +70,8 @@ internal sealed class UpdateService
             if (nom == NomArchive) archive = url;
             else empreintes = url;
         }
-        return archive is not null && empreintes is not null ? new MiseAJour(version, archive, empreintes) : null;
+        return archive is not null && empreintes is not null
+            ? new MiseAJour(version, archive, empreintes, depotPrive) : null;
     }
 
     internal async Task<string> PreparerAsync(MiseAJour maj, CancellationToken ct = default)
@@ -71,11 +81,19 @@ internal sealed class UpdateService
         Directory.CreateDirectory(dossier);
         try
         {
-            var empreintes = await Http.GetStringAsync(maj.Empreintes, ct).ConfigureAwait(false);
-            var empreinteAttendue = LireEmpreinte(empreintes);
             var archive = Path.Combine(dossier, NomArchive);
-            using (var reponse = await Http.GetAsync(maj.Archive, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false))
+            string empreintes;
+            if (maj.DepotPrive)
             {
+                await ExecuterGhAsync(["release", "download", $"v{maj.Version.ToString(3)}", "--repo",
+                    "aileriwaterfish/replayo", "--dir", dossier, "--pattern", NomArchive,
+                    "--pattern", NomEmpreintes], TimeSpan.FromMinutes(10), ct).ConfigureAwait(false);
+                empreintes = await File.ReadAllTextAsync(Path.Combine(dossier, NomEmpreintes), ct).ConfigureAwait(false);
+            }
+            else
+            {
+                empreintes = await Http.GetStringAsync(maj.Empreintes, ct).ConfigureAwait(false);
+                using var reponse = await Http.GetAsync(maj.Archive, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
                 reponse.EnsureSuccessStatusCode();
                 if (reponse.Content.Headers.ContentLength > 300_000_000)
                     throw new InvalidDataException("Archive de mise à jour trop grande.");
@@ -91,6 +109,9 @@ internal sealed class UpdateService
                     await cible.WriteAsync(tampon.AsMemory(0, lu), ct).ConfigureAwait(false);
                 }
             }
+            var empreinteAttendue = LireEmpreinte(empreintes);
+            if (new FileInfo(archive).Length > 300_000_000)
+                throw new InvalidDataException("Archive de mise à jour trop grande.");
             await using (var fichier = File.OpenRead(archive))
             {
                 var empreinte = Convert.ToHexString(await SHA256.HashDataAsync(fichier, ct).ConfigureAwait(false));
@@ -106,6 +127,45 @@ internal sealed class UpdateService
         catch
         {
             Directory.Delete(dossier, recursive: true);
+            throw;
+        }
+    }
+
+    private static async Task<string> ExecuterGhAsync(string[] args, TimeSpan delaiMax, CancellationToken ct)
+    {
+        var info = new ProcessStartInfo("gh")
+        {
+            UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardOutput = true, RedirectStandardError = true,
+        };
+        foreach (var arg in args) info.ArgumentList.Add(arg);
+        using var processus = new Process { StartInfo = info };
+        try { processus.Start(); }
+        catch (Win32Exception ex)
+        {
+            throw new AccesMiseAJourPriveeException("Ce dépôt privé nécessite GitHub CLI connecté sur ce PC.", ex);
+        }
+        using var attente = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        attente.CancelAfter(delaiMax);
+        try
+        {
+            var sortie = processus.StandardOutput.ReadToEndAsync(attente.Token);
+            var erreur = processus.StandardError.ReadToEndAsync(attente.Token);
+            await processus.WaitForExitAsync(attente.Token).ConfigureAwait(false);
+            var texte = await sortie.ConfigureAwait(false);
+            var texteErreur = await erreur.ConfigureAwait(false);
+            if (processus.ExitCode != 0)
+                throw new AccesMiseAJourPriveeException($"Accès à la Release privée refusé : {texteErreur.Trim()}");
+            return texte;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            if (!processus.HasExited) processus.Kill(entireProcessTree: true);
+            throw new TimeoutException("GitHub n'a pas répondu à temps.");
+        }
+        catch
+        {
+            if (!processus.HasExited) processus.Kill(entireProcessTree: true);
             throw;
         }
     }

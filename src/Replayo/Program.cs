@@ -98,6 +98,12 @@ public static class Program
                 });
             }
             catch (OperationCanceledException) when (jetonMaj.IsCancellationRequested) { }
+            catch (AccesMiseAJourPriveeException ex)
+            {
+                Journal.Ecrire($"[maj] accès privé : {ex}");
+                if (manuel && !app.Dispatcher.HasShutdownStarted)
+                    app.Dispatcher.Invoke(() => tray.Notifier("Mise à jour privée : connecte GitHub CLI à ton compte."));
+            }
             catch (Exception ex)
             {
                 Journal.Ecrire($"[maj] erreur : {ex}");

@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <TargetFramework>net8.0-windows10.0.22000.0</TargetFramework>
     <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
     <ApplicationIcon>..\..\assets\replayo.ico</ApplicationIcon>
