@@ -399,6 +399,17 @@ public sealed class RecorderService : IDisposable
             var clips = new ClipService(_cfg);
             foreach (var (p, i) in _pipelines.Select((p, i) => (p, i)))
             {
+                var horloge = p.Enc.HorlogeCapture;
+                var debut = horloge - TimeSpan.FromSeconds(_cfg.DureeBufferSecondes);
+                if (debut < TimeSpan.Zero) debut = TimeSpan.Zero;
+                if (p.Ring.IntervalleAvecDebut(debut, horloge).Segments.Count == 0)
+                {
+                    // Juste après le démarrage ou une relance d'écran, le premier
+                    // segment de 10 s est encore ouvert. Le finaliser à la demande
+                    // permet de sauver les secondes déjà capturées avec la touche.
+                    Journal.Ecrire("[clip] finalisation du segment en cours");
+                    await p.Enc.TerminerSegmentAsync().WaitAsync(TimeSpan.FromSeconds(20));
+                }
                 // L'audio (mix) n'accompagne que l'écran principal, comme avant le découplage.
                 var chemin = await clips.CreerClipAsync(p.Ring, p.Enc.HorlogeCapture, p.Suffixe,
                     i == 0 ? CheminAudioMix : null);
