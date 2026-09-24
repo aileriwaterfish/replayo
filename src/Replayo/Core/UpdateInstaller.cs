@@ -2,11 +2,11 @@ using System.Diagnostics;
 
 namespace Replayo.Core;
 
-/// Tourne depuis une copie temporaire de l'ancien exe, après la fermeture de Replayo.
+/// Tourne depuis une copie temporaire de Replayo.Updater.exe, après la fermeture de Replayo.
 internal static class UpdateInstaller
 {
     private static readonly string[] Fichiers =
-        ["Replayo.exe", "ffmpeg.exe", "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico"];
+        ["Replayo.exe", "Replayo.Updater.exe", "ffmpeg.exe", "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico"];
 
     internal static int Executer(string dossier, string installation, int pid)
     {

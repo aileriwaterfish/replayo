@@ -52,7 +52,7 @@ public sealed class UpdateServiceTests
         {
             var archive = Path.Combine(racine, "release.zip");
             using (var zip = ZipFile.Open(archive, ZipArchiveMode.Create))
-                foreach (var nom in new[] { "Replayo.exe", "ffmpeg.exe", "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico" })
+                foreach (var nom in new[] { "Replayo.exe", "Replayo.Updater.exe", "ffmpeg.exe", "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico" })
                 {
                     var entree = zip.CreateEntry(nom);
                     using var writer = new StreamWriter(entree.Open());
@@ -82,7 +82,7 @@ public sealed class UpdateServiceTests
         Directory.CreateDirectory(installation);
         try
         {
-            foreach (var nom in new[] { "Replayo.exe", "ffmpeg.exe", "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico" })
+            foreach (var nom in new[] { "Replayo.exe", "Replayo.Updater.exe", "ffmpeg.exe", "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico" })
             {
                 var chemin = Path.Combine(contenu, nom.Replace('/', Path.DirectorySeparatorChar));
                 Directory.CreateDirectory(Path.GetDirectoryName(chemin)!);
@@ -108,7 +108,7 @@ public sealed class UpdateServiceTests
         Directory.CreateDirectory(installation);
         try
         {
-            foreach (var nom in new[] { "Replayo.exe", "ffmpeg.exe", "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico" })
+            foreach (var nom in new[] { "Replayo.exe", "Replayo.Updater.exe", "ffmpeg.exe", "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico" })
             {
                 var chemin = Path.Combine(contenu, nom.Replace('/', Path.DirectorySeparatorChar));
                 Directory.CreateDirectory(Path.GetDirectoryName(chemin)!);

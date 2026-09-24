@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Replayo\Core\UpdateInstaller.cs" Link="UpdateInstaller.cs" />
+    <Compile Include="..\Replayo\Core\Journal.cs" Link="Journal.cs" />
+  </ItemGroup>
+</Project>

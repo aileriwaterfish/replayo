@@ -18,13 +18,6 @@ public static class Program
             return;
         }
 
-        if (args is ["--apply-update", var dossierMaj, var installation, var pidAncien]
-            && int.TryParse(pidAncien, out var pidMaj))
-        {
-            Environment.ExitCode = UpdateInstaller.Executer(dossierMaj, installation, pidMaj);
-            return;
-        }
-
         // Diagnostic audio : capture N secondes du son d'un processus vers un wav.
         if (args is ["--test-loopback", var pid, var secondes, var sortieWav])
         {

@@ -19,7 +19,7 @@ internal sealed class UpdateService
     private const string Api = "https://api.github.com/repos/aileriwaterfish/replayo/releases/latest";
     private static readonly HttpClient Http = CreerClient();
     private static readonly string[] Fichiers =
-        ["Replayo.exe", "ffmpeg.exe", "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico"];
+        ["Replayo.exe", "Replayo.Updater.exe", "ffmpeg.exe", "assets/clip.wav", "assets/replayo.ico", "assets/tray.ico"];
 
     internal static Version VersionInstallee => typeof(UpdateService).Assembly.GetName().Version ?? new Version(0, 0);
 
@@ -120,8 +120,7 @@ internal sealed class UpdateService
             }
             var contenu = Path.Combine(dossier, "contenu");
             await Task.Run(() => ExtraireArchive(archive, contenu), ct).ConfigureAwait(false);
-            File.Copy(Environment.ProcessPath ?? throw new InvalidOperationException("Exécutable introuvable."),
-                Path.Combine(dossier, "updater.exe"));
+            File.Copy(Path.Combine(contenu, "Replayo.Updater.exe"), Path.Combine(dossier, "updater.exe"));
             return dossier;
         }
         catch
